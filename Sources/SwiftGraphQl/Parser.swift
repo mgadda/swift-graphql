@@ -126,26 +126,34 @@ internal func documentParser() -> ArrayParser<StreamToken, Document> {
   let fullOperationDefinition = opType ~ name*? ~ variableDefinitions ~ directives ~ selectionSet ^^ { (opType, name, variableDefinitions, directives, selectionSet) in
     OperationDefinition(selectionSet, operationType: opType, name: name, variableDefinitions: variableDefinitions, directives: directives)
   }
-  let opDefinition = fullOperationDefinition | simpleOperationDefinition
+  let opDefinition = simpleOperationDefinition | fullOperationDefinition
   let fragmentDefinition = accept(StreamToken.name("fragment")) <~ name ~ typeCondition ~ directives ~ selectionSet ^^ { (name, typeCondition, directives, selectionSet) in
     FragmentDefinition(name: name, typeCondition: typeCondition, directives: directives, selectionSet: selectionSet)
   }
   let executableDefinition = (opDefinition ^^ { ExecutableDefinition.opDefinition($0) }) | (fragmentDefinition ^^ { ExecutableDefinition.fragmentDefinition($0)})
-//  let typeSystemDefinition = placeholder
-//  let typeSystemExt = placeholder
+  let typeSystemDefinition: ArrayParser<StreamToken, TBD> = placeholder
+  let typeSystemExt: ArrayParser<StreamToken, TBD> = placeholder
   let definition = executableDefinition// | typeSystemDefition | typeSystemExt
   let document = definition+
   return document
 }
 
-public func GraphQlParser(source: String) -> Document? {
+public func GraphQlParser(source: String) throws -> Document {
   let lexer = GraphQlLexer()
-  guard let (tokens, remaining) = lexer(Substring(source)) else {
-    return nil
+  let (lexResult, _) = try lexer(Substring(source)).get()
+  
+  let tokens = lexResult.filter { (token) -> Bool in
+    switch token {
+    case .whitespace: return false
+    default: return true
+    }
   }
+  
   let parser = documentParser()
-  guard let (doc, _) = parser(ArraySlice(tokens)) else {
-    return nil
+  let result = parser(ArraySlice(tokens)).map { (doc, _ ) in doc }
+  if case let .failure(e) = result {
+    print(e.reason ?? "")
+    print(e.at)    
   }
-  return doc
+  return try result.get()
 }

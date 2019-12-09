@@ -1,5 +1,6 @@
 import XCTest
 @testable import SwiftGraphQl
+import SwiftParse
 
 final class ParserTests: XCTestCase {
     func testParser() {

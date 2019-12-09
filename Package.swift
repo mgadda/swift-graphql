@@ -13,7 +13,7 @@ let package = Package(
     ],
     dependencies: [
       //.package(url: "https://github.com/mgadda/swift-parse", .exact("0.3.0"))
-      .package(url: "../swift-parse", .branch("master"))
+      .package(url: "../swift-parse", .branch("better_errors"))
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.

@@ -90,7 +90,7 @@ internal func GraphQlLexer() -> StringParser<[StreamToken]> {
 
   let escapedCharacter = accept("\\") ~ accept(oneOf: "\"\\/bfnrt") ^^ { (slash, c) in slash + c }
 
-  func hexDigit(source: Substring) -> (String, Substring)? {
+  func hexDigit(source: Substring) -> ParseResult<Substring, String> {
     acceptIf(source, fn: { (ch: Substring.Element) -> Bool in
       (ch >= "0" && ch <= "9") || (ch >= "a" && ch <= "f") || (ch >= "A" && ch <= "F")
     })
