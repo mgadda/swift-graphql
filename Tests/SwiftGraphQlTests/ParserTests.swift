@@ -227,6 +227,14 @@ final class ParserTests: XCTestCase, ParserHelpers {
                  remaining: [])
   }
   func testDirective() {
+    // @test
+    assertParsed(GraphQlDocumentParser.directive,
+                  input: [
+                   StreamToken.directive("test")],
+                  val: Directive(name: "test", arguments: []),
+                  remaining: [])
+            
+    // @test(key: 0)
     assertParsed(GraphQlDocumentParser.directive,
                  input: [
                   StreamToken.directive("test"),
@@ -238,6 +246,194 @@ final class ParserTests: XCTestCase, ParserHelpers {
                  val: Directive(name: "test", arguments: [Argument(name: "key", value: Value.int(0))]),
                  remaining: [])
   }
+  func testNamedType() {
+    // Test
+    assertParsed(GraphQlDocumentParser.namedType,
+                 input: [StreamToken.name("Test")],
+                 val: Type.named("Test"),
+                 remaining: [])
+  }
+  func testListType() {
+    // [Test]
+    assertParsed(GraphQlDocumentParser.listType,
+                 input: [
+                  StreamToken.leftBracket,
+                  StreamToken.name("Test"),
+                  StreamToken.rightBracket],
+                 val: Type.list(Type.named("Test")),
+                 remaining: [])
+  }
+  func testNonNullType() {
+    // Test!
+    assertParsed(GraphQlDocumentParser.nonNullType,
+                 input: [
+                  StreamToken.name("Test"),
+                  StreamToken.exclamation],
+                 val: Type.required(Type.named("Test")),
+                 remaining: [])
+  }
+  func testVariable() {
+    // $var
+    assertParsed(GraphQlDocumentParser.variable,
+                 input: [StreamToken.variable("var")],
+                 val: "var",
+                 remaining: [])
+  }
+  func testVariableDefinition() {
+    // var: Type
+    assertParsed(GraphQlDocumentParser.variableDefinition,
+                 input: [
+                  StreamToken.variable("var"),
+                  StreamToken.colon,
+                  StreamToken.name("String")],
+                 val: VariableDefinition(
+                  name: "var",
+                  type: Type.named("String"),
+                  defaultValue: nil,
+                  directives: []),
+                 remaining: [])
+        
+    // var: Type = "test"
+    assertParsed(GraphQlDocumentParser.variableDefinition,
+                 input: [
+                  StreamToken.variable("var"),
+                  StreamToken.colon,
+                  StreamToken.name("String"),
+                  StreamToken.assignment,
+                  StreamToken.stringValue("test")],
+                 val: VariableDefinition(
+                  name: "var",
+                  type: Type.named("String"),
+                  defaultValue: Value.string("test"),
+                  directives: []),
+                 remaining: [])
+    
+    // var: Type @directive
+    assertParsed(GraphQlDocumentParser.variableDefinition,
+                 input: [
+                  StreamToken.variable("var"),
+                  StreamToken.colon,
+                  StreamToken.name("String"),
+                  StreamToken.directive("directive")],
+                 val: VariableDefinition(
+                  name: "var",
+                  type: Type.named("String"),
+                  defaultValue: nil,
+                  directives: [Directive(name: "directive", arguments: [])]),
+                 remaining: [])
+  }
+  func testVariableDefinitions() {
+    assertParsed(GraphQlDocumentParser.variableList,
+                 input: [
+                  StreamToken.variable("var1"),
+                  StreamToken.colon,
+                  StreamToken.name("String"),
+                  StreamToken.comma,
+                  StreamToken.variable("var2"),
+                  StreamToken.colon,
+                  StreamToken.name("Int"),
+                  StreamToken.assignment,
+                  StreamToken.intValue(0)],
+                 val: [
+                  VariableDefinition(name: "var1",
+                                     type: Type.named("String"),
+                                     defaultValue: nil,
+                                     directives: []),
+                  VariableDefinition(name: "var2",
+                                     type: Type.named("Int"),
+                                     defaultValue: Value.int(0),
+                                     directives: [])],
+                 remaining: [])
+  }
+  func testAlias() {
+    assertParsed(GraphQlDocumentParser.alias,
+                 input: [
+                  StreamToken.name("otherName"),
+                  StreamToken.colon],
+                 val: "otherName",
+                 remaining: [])
+  }
+  func testFragmentSpread() {
+    assertParsed(GraphQlDocumentParser.fragmentSpread,
+                 input: [
+                  StreamToken.ellipsis,
+                  StreamToken.name("FragmentName")],
+                 val: Selection.fragmentSpread("FragmentName", []),
+                 remaining: [])
+  }
+  func testInlineFragment() {
+    
+  }
+  func testSelection() {
+    
+  }
+  func testSelectionSet() {
+    
+  }
+  func testField() {
+    // test
+    let field = GraphQlDocumentParser.field()
+    
+    assertParsed(field,
+                 input: [StreamToken.name("test")],
+                 val: Field(name: "test"),
+                 remaining: [])
+    
+    // another_name: test
+    assertParsed(field,
+                 input: [
+                  StreamToken.name("anotherName"),
+                  StreamToken.colon,
+                  StreamToken.name("test")],
+                 val: Field(
+                  name: "test",
+                  alias: "anotherName"),
+                 remaining: [])
+    
+    // test @directive(name: "value")
+    assertParsed(field,
+                 input: [
+                  StreamToken.name("test"),
+                  StreamToken.directive("directive"),
+                  StreamToken.leftParen, StreamToken.name("name"),
+                  StreamToken.colon,
+                  StreamToken.stringValue("value"),
+                  StreamToken.rightParen],
+                 val: Field(
+                  name: "test",
+                  directives: [
+                    Directive(
+                      name: "directive",
+                      arguments: [
+                        Argument(
+                          name: "name",
+                          value: Value.string("value"))])],
+                  selectionSet: []),
+                 remaining: [])
+    
+    // field { subfield }
+    assertParsed(field,
+                 input: [
+                  StreamToken.name("field"),
+                  StreamToken.leftCurly,
+                  StreamToken.name("subfield"),
+                  StreamToken.rightCurly],
+                 val: Field(name: "field", selectionSet: [Selection.field(Field(name: "subfield"))]),
+                 remaining: [])
+    
+    // field(name: 0)
+    assertParsed(field,
+    input: [
+     StreamToken.name("field"),
+     StreamToken.leftParen,
+     StreamToken.name("name"),
+     StreamToken.colon,
+     StreamToken.intValue(0),
+     StreamToken.rightParen],
+    val: Field(name: "field", arguments: [Argument(name: "name", value: Value.int(0))]),
+    remaining: [])
+  }
+  
   static var allTests = [
       ("testName", testName),
   ]

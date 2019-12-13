@@ -70,57 +70,57 @@ public struct GraphQlDocumentParser {
 //  // Directives
   static let directiveName = accept(StreamTokenDirective) ^^ { $0.asString! }
 ////  static var argument: StreamTokenParser<Argument> = placeholder
-  static let directive = directiveName ~ arguments ^^ { (name, arguments) in
-    Directive(name: name, arguments: arguments)
+  static let directive = directiveName ~ arguments*? ^^ { (name, arguments) in
+    Directive(name: name, arguments: arguments ?? [])
   }
-//  static let directives = directive*
+  static let directives = directive*
 //
 //  // Type references
-//  static let namedType = name ^^ { Type.identity($0) }
-//  static let listType = accept(StreamToken.leftBracket) <~ namedType ~> accept(StreamToken.rightBracket) ^^ { Type.list($0) }
-//  static let nonNullType = (namedType ~> accept(StreamToken.exclamation)) | (listType ~> accept(StreamToken.exclamation)) ^^ { Type.required($0) }
-//  static let type = namedType | listType | nonNullType
+  static let namedType = name ^^ { Type.named($0) }
+  static let listType = accept(StreamToken.leftBracket) <~ namedType ~> accept(StreamToken.rightBracket) ^^ { Type.list($0) }
+  static let nonNullType = (namedType ~> accept(StreamToken.exclamation)) | (listType ~> accept(StreamToken.exclamation)) ^^ { Type.required($0) }
+  static let type = namedType | listType | nonNullType
 //
 //  // Variable List Definitions
-//  static let variable = accept(StreamTokenVariable) ^^ { $0.asString! }
-//  static let variableType = type
-//  static let variableDefinition = variable ~ variableType ~ value*? ~ directives ^^ { (name, varType, defaultValue, directives) -> VariableDefinition in
-//    VariableDefinition(name: name, type: varType, defaultValue: defaultValue, directives: directives)
-//  }
-//  static let variableList = variableDefinition ~ (accept(StreamToken.comma) <~ variableDefinition)* ^^ { (first, rest) in [first] + rest }
-//  static let variableDefinitions = accept(StreamToken.leftParen) <~ variableList ~> accept(StreamToken.rightParen)
-//
-//  static let variableAsValue = variable ^^ { Value.variable($0) }
+  static let variable = accept(StreamTokenVariable) ^^ { $0.asString! }
+  static let variableType = type
+  static let variableDefinition = variable ~> accept(StreamToken.colon) ~ variableType ~ (accept(StreamToken.assignment) <~ value)*? ~ directives ^^ { (name, varType, defaultValue, directives) -> VariableDefinition in
+    VariableDefinition(name: name, type: varType, defaultValue: defaultValue, directives: directives)
+  }
+  static let variableList = variableDefinition ~ (accept(StreamToken.comma) <~ variableDefinition)* ^^ { (first, rest) in [first] + rest }
+  static let variableDefinitions = accept(StreamToken.leftParen) <~ variableList ~> accept(StreamToken.rightParen)
+
+  static let variableAsValue = variable ^^ { Value.variable($0) }
   static let value = intValue | floatValue | stringValue | booleanValue | nullValue | enumValue
   static let constValue: StreamTokenParser<Value> = value | listValue | objectValue
-//  static let nonConstValue = value | variableAsValue
-//
-//  // Arguments
+  static let nonConstValue = value | variableAsValue
+
+  // Arguments
   static let argument = name ~ accept(StreamToken.colon) ~ constValue ^^ { (name, _, value) in Argument(name: name, value: value) }
   // TODO: are empty argument lists allowed?
   static let argumentList = argument ~ (accept(StreamToken.comma) <~ argument)* ^^ { (first, rest) in [first] + rest }
   static let arguments = accept(StreamToken.leftParen) <~ argumentList ~> accept(StreamToken.rightParen)
-//
-//  // Fields and selection sets
-//  static let alias = name ~> accept(StreamToken.colon)
-//  static var field: () -> ArrayParser<StreamToken, Field> = {
-//    alias*? ~ name ~ arguments ~ directives ~ selectionSet() ^^ { (alias, name, arguments, directives, selectionSet) in
-//      Field(alias: alias, name: name, arguments: arguments, directives: directives, selectionSet: selectionSet)
-//    }
-//  }
-//  static let fieldAsSelection = field() ^^ { Selection.field($0) }
+
+  // Fields and selection sets
+  static let alias = name ~> accept(StreamToken.colon)
+  static var field: () -> ArrayParser<StreamToken, Field> = {
+    alias*? ~ name ~ arguments*? ~ directives ~ selectionSet()*? ^^ { (alias, name, arguments, directives, selectionSet) in
+      Field(name: name, alias: alias, arguments: arguments ?? [], directives: directives, selectionSet: selectionSet ?? [])
+    }
+  }
+  static let fieldAsSelection = field() ^^ { Selection.field($0) }
 //  // note: does not check that "on" is *not* used
-//  static let fragmentSpread = accept(StreamToken.ellipsis) <~ name ~ directives ^^ { (name, directives) in
-//    Selection.fragmentSpread(name, directives)
-//  }
-//  static let typeCondition = accept(StreamToken.name("on")) <~ type
-//  static let selection: () -> StreamTokenParser<Selection> = { fieldAsSelection | fragmentSpread | inlineFragment }
-//  static let selectionSet: () -> StreamTokenParser<[Selection]> = { accept(StreamToken.leftCurly) <~ selection()+ ~> accept(StreamToken.rightCurly) }
-//
-//  static let inlineFragment: () -> StreamTokenParser<Selection> = { accept(StreamToken.ellipsis) <~ typeCondition*? ~ directives ~ selectionSet() ^^ { (typeCondition, directives, selectionSet) in
-//      Selection.inlineFragment(typeCondition, directives, selectionSet)
-//    }
-//  }
+  static let fragmentSpread = accept(StreamToken.ellipsis) <~ name ~ directives ^^ { (name, directives) in
+    Selection.fragmentSpread(name, directives)
+  }
+  static let typeCondition = accept(StreamToken.name("on")) <~ type
+  static let selection: () -> StreamTokenParser<Selection> = { fieldAsSelection | fragmentSpread /*| inlineFragment */ }
+  static let selectionSet: () -> StreamTokenParser<[Selection]> = { accept(StreamToken.leftCurly) <~ selection()+ ~> accept(StreamToken.rightCurly) }
+
+  static let inlineFragment: () -> StreamTokenParser<Selection> = { accept(StreamToken.ellipsis) <~ typeCondition*? ~ directives ~ selectionSet() ^^ { (typeCondition, directives, selectionSet) in
+      Selection.inlineFragment(typeCondition, directives, selectionSet)
+    }
+  }
 //
 //
 ////  static let field = alias*? ~ name ~ arguments ~ directives ~ selectionSet ^^ { (alias, name, arguments, directives, selectionSet) in

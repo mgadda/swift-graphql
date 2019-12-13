@@ -31,7 +31,7 @@ public struct Directive : Equatable  {
 
 
 public enum Type : Equatable  {
-  case identity(String)
+  case named(String)
   indirect case list(Type)
   indirect case required(Type)
 }
@@ -67,9 +67,15 @@ public struct Field : Equatable  {
   public let arguments: [Argument]
   public let directives: [Directive]
   public let selectionSet: [Selection]
-  public init(alias: String?, name: String, arguments: [Argument], directives: [Directive], selectionSet: [Selection]) {
-    self.alias = alias
+  public init(
+    name: String,
+    alias: String? = nil,
+    arguments: [Argument] = [],
+    directives: [Directive] = [],
+    selectionSet: [Selection] = []
+  ) {
     self.name = name
+    self.alias = alias
     self.arguments = arguments
     self.directives = directives
     self.selectionSet = selectionSet
