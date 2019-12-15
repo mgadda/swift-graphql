@@ -1,0 +1,7 @@
+language: objective-c
+osx_image: xcode11.2
+env:
+  - TOOLCHAINS=swift
+script:
+  - swift package fetch
+  - swift test
