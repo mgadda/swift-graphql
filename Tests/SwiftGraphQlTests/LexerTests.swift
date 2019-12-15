@@ -1,13 +1,43 @@
 import XCTest
 @testable import SwiftGraphQl
-
-final class LexerTests: XCTestCase {
-    func testLexer() {
-      let lexer = GraphQlLexer()
-      
-    }
-
-    static var allTests = [
-        ("testLexer", testLexer),
-    ]
+import SwiftParse
+final class LexerTests: XCTestCase, ParserHelpers {  
+  
+  func testIntLiteral() {
+    assertParsed(GraphQlLexer.intLiteral, input: "1", val: 1)
+    assertParsed(GraphQlLexer.intLiteral, input: "-1", val: -1)
+  }
+  func testFloatLiteral() {
+    assertParsed(GraphQlLexer.floatLiteral, input: "1.4", val: 1.4)
+    assertParsed(GraphQlLexer.floatLiteral, input: "-1.4", val: -1.4)
+    assertParsed(GraphQlLexer.floatLiteral, input: "1", val: 1.0)
+  }
+  func testEscapedCharacter() {
+    assertParsed(GraphQlLexer.escapedCharacter, input: "\\b", val: "\\b")
+  }
+  func testUnicodeCharacter() {
+    assertParsed(GraphQlLexer.escapedUnicode, input: "\\uaf09", val: "\\uaf09")
+  }
+  func testDoubleQuotedStringValue() {
+    let input: Substring = "\"a string with\\n\\tsome special characters: \\u1234\""
+    assertParsed(GraphQlLexer.doubleQuotedStringValue, input: input, val: StreamToken.stringValue("a string with\\n\\tsome special characters: \\u1234"))
+  }
+  func testBlockQuotedStringValue() {
+    let input: Substring = """
+\"\"\"How sweet to be a Cloud
+Floating in the Blue!
+Every little cloud
+Always sings aloud!\"\"\"
+"""
+    assertParsed(GraphQlLexer.blockQuotedStringValue, input: input, val: StreamToken.stringValue("How sweet to be a Cloud\nFloating in the Blue!\nEvery little cloud\nAlways sings aloud!"))
+  }
+  static var allTests = [
+      ("testIntLiteral", testIntLiteral),
+      ("testFloatLiteral", testFloatLiteral),
+      ("testEscapedCharacter", testEscapedCharacter),
+      ("testEscapedCharacter", testEscapedCharacter),
+      ("testUnicodeCharacter", testUnicodeCharacter),
+      ("testDoubleQuotedStringValue", testDoubleQuotedStringValue),
+      ("testBlockQuotedStringValue", testBlockQuotedStringValue)
+  ]
 }
