@@ -83,7 +83,7 @@ Not exactly for human consumption but great for your programmatic needs.
 
 SwiftGraphQl also comes with a command line interface: `graphql-cli`.
 
-```
+```bash
 graphql-cli --help
 usage: graphql-cli parse [filename]
 Use `-` in place of `[filename]` to read from stdin.
@@ -93,6 +93,6 @@ If the document can be parsed successfully, the program exits with success statu
 
 Pass `-` in place of `[filename]` if the document to be parsed is available for reading on `stdin` instead of from a file:
 
-```
+```bash
 echo "query TotallyValidQuery { foo }" | graphql-cli parse -
 ```
