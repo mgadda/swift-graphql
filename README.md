@@ -1,5 +1,7 @@
 # SwiftGraphQl
 
+[![Build Status](https://travis-ci.org/mgadda/swift-graphql.svg?branch=master)](https://travis-ci.org/mgadda/swift-graphql)
+
 Use SwiftGraphQl to parse GraphQL documents (queries and type definitions). SwiftGraphQl defines a complete abstract syntax tree for programmatically working with GraphQL documents. It aims to be (though is not quite yet) fully compliant with the [latest working draft of the GraphQL spec](https://graphql.github.io/graphql-spec/draft/).
 
 SwiftGraphQl has only one dependency which is [SwiftParse](https://github.com/mgadda/swift-parse), a purely swift-based parser combinator library.
