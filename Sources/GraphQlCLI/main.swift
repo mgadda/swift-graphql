@@ -1,6 +1,6 @@
 //
 //  main.swift
-//  SwiftGraphQl
+//  SwiftGraphQL CLI
 //
 //  Created by Matt Gadda on 12/14/19.
 //
@@ -8,24 +8,47 @@
 import SwiftGraphQl
 import Foundation
 
+func printError(_ value: Any) {
+  FileHandle.standardError.write(("\(value)").data(using: .utf8)!)
+}
+
 func printHelp() {
-  print("usage: graphql-cli parse [filename]")
+  printError("""
+usage: graphql-cli parse [filename]
+Use `-` in place of `[filename]` to read from stdin.
+""")
+}
+
+if CommandLine.arguments.count >= 2 && (CommandLine.arguments[1] == "--help" || CommandLine.arguments[1] == "-h") {
+  printHelp()
+  exit(0)
 }
 
 guard CommandLine.arguments.count >= 3 else {
-  print("not enough arguments")
+  printError("error: not enough arguments\n")
+  printHelp()
   exit(1)
 }
 
 guard CommandLine.arguments[1] == "parse" else {
-  print("unknown command")
+  printError("error: unknown command")
+  printHelp()
   exit(1)
 }
 
+let filename = CommandLine.arguments[2]
+
+
 do {
-  let source = try String(contentsOfFile: CommandLine.arguments[2])
-  _ = try parseGraphQl(source: source)
+  if filename == "-" {
+    let source = FileHandle.standardInput.readDataToEndOfFile()
+    _ = try parseGraphQl(source: String(data: source, encoding: .utf8)!)
+  } else {
+    let source = try String(contentsOfFile: filename)
+    _ = try parseGraphQl(source: source)
+  }
+  
 } catch {
-  print(error)
+  printError(error)
   exit(1)
 }
