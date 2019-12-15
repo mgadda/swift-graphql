@@ -146,9 +146,8 @@ struct GraphQlDocumentParser {
   static let document = definition+
 }
 
-public func parseGraphQl(source: String) throws -> Document {
-  let lexer = GraphQlLexer()
-  let (lexResult, _) = try lexer(Substring(source)).get()
+public func parseGraphQl(source: String) throws -> Document {  
+  let (lexResult, _) = try GraphQlLexer.lexer(Substring(source)).get()
 
   let tokens = lexResult.filter { (token) -> Bool in
     switch token {

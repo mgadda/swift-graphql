@@ -449,8 +449,7 @@ final class ParserTests: XCTestCase, ParserHelpers {
     remaining: [])
   }
   func testSelectionSet() {
-    let lexer = GraphQlLexer()
-    let result = lexer("""
+    let result = GraphQlLexer.lexer("""
     {
       aField(name: "value")
       ...Fragment
@@ -512,8 +511,7 @@ final class ParserTests: XCTestCase, ParserHelpers {
                  remaining: [])
   }
   func testFullOperationDefinition() {
-    let lexer = GraphQlLexer()
-    let result = lexer("""
+    let result = GraphQlLexer.lexer("""
     query GetFoo($var: String) {
       field(var: $var)
     }
