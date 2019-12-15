@@ -575,7 +575,7 @@ final class ParserTests: XCTestCase, ParserHelpers {
                  remaining: [])
   }
   static var allTests = [
-//      ("testName", testName),
+      ("testName", testName),
   ]
 }
 

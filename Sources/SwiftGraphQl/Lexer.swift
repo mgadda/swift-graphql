@@ -133,7 +133,7 @@ internal func GraphQlLexer() -> StringParser<[StreamToken]> {
   let assignment = accept("=") ^^ { _ in StreamToken.assignment }
   let exclamation = accept("!") ^^ { _ in StreamToken.exclamation }
 
-  let nameCharacter = accept(range: "a"..."z") | accept(range: "A"..."Z") | accept(range: "0"..."9")
+  let nameCharacter = accept(range: "a"..."z") | accept(range: "A"..."Z") | accept(range: "0"..."9") | accept("_")
   let name = nameCharacter+ ^^ { StreamToken.name($0.joined()) }
 
   let variable = accept("$") <~ nameCharacter+ ^^ { StreamToken.variable($0.joined()) }

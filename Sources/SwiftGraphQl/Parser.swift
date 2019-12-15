@@ -42,7 +42,7 @@ fileprivate func StreamTokenDirective(t: StreamToken) -> Bool {
 
 typealias StreamTokenParser<T> = ArrayParser<StreamToken, T>
 
-public struct GraphQlDocumentParser {
+struct GraphQlDocumentParser {
   static let name = accept(StreamTokenName) ^^ { $0.asString! }
 //  static var value: ArrayParser<StreamToken, Value> = placeholder
 
@@ -146,24 +146,24 @@ public struct GraphQlDocumentParser {
   static let document = definition+
 }
 
-//public func GraphQlParser(source: String) throws -> Document {
-//  let lexer = GraphQlLexer()
-//  let (lexResult, _) = try lexer(Substring(source)).get()
-//
-//  let tokens = lexResult.filter { (token) -> Bool in
-//    switch token {
-//    case .whitespace: return false
-//    default: return true
-//    }
-//  }
-//
-//  let parser = GraphQlDocumentParser.document
-//  let result = parser(ArraySlice(tokens)).map { (doc, _ ) in doc }
-//  if case let .failure(e) = result {
-//    print(e.reason ?? "")
-//    print(e.at)
-//  }
-//  return try result.get()
-//}
+public func parseGraphQl(source: String) throws -> Document {
+  let lexer = GraphQlLexer()
+  let (lexResult, _) = try lexer(Substring(source)).get()
+
+  let tokens = lexResult.filter { (token) -> Bool in
+    switch token {
+    case .whitespace: return false
+    default: return true
+    }
+  }
+
+  let parser = GraphQlDocumentParser.document
+  let result = parser(ArraySlice(tokens)).map { (doc, _ ) in doc }
+  if case let .failure(e) = result {
+    print(e.reason ?? "")
+    print(e.at)
+  }
+  return try result.get()
+}
 
 
