@@ -35,7 +35,8 @@ extension ParserHelpers {
     case let .success(s):
         XCTAssertEqual(s.0, val, "val", file: file, line: line)
         XCTAssertEqual(s.1, remaining, "remaining", file: file, line: line)
-    case let .failure(e): XCTFail("Failed to parse at \(e.at)", file: file, line: line)
+    case let .failure(e):
+      XCTFail("Failed to parse at \(e.at). Reason: \(e.reason)", file: file, line: line)
     }
   }
 
