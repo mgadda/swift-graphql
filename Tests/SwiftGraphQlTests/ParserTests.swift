@@ -2,7 +2,7 @@ import XCTest
 @testable import SwiftGraphQl
 import SwiftParse
 
-final class ParserTests: XCTestCase, ParserHelpers {
+final class ParserTests: XCTestCase, ParserHelpers {  
   func testName() {
     assertParsed(GraphQlDocumentParser.name,
                  input: [.name("test")],
@@ -456,7 +456,9 @@ final class ParserTests: XCTestCase, ParserHelpers {
   func testFullOperationDefinition() {
     let result = GraphQlLexer.lexer("""
     query GetFoo($var: String) {
-      field(var: $var)
+      field(var: $var) {
+        aField
+      }
     }
     """)
     
@@ -475,6 +477,9 @@ final class ParserTests: XCTestCase, ParserHelpers {
       .colon,
       .variable("var"),
       .rightParen,
+      .leftCurly,
+      .name("aField"),
+      .rightCurly,
       .rightCurly
     ]
         
@@ -487,7 +492,8 @@ final class ParserTests: XCTestCase, ParserHelpers {
                   arguments: [
                     Argument(
                       name: "var",
-                      value: Value.variable("var"))]))],
+                      value: Value.variable("var"))],
+                  selectionSet: [Selection.field(Field(named: "aField"))]))],
                   operationType: OperationType.query,
                   name: "GetFoo",
                   variableDefinitions: [
@@ -512,6 +518,61 @@ final class ParserTests: XCTestCase, ParserHelpers {
                   selectionSet: [
                     Selection.field(
                       Field(named: "aField"))]))
+  }
+  func testExecutableDefinition() {
+    let result = GraphQlLexer.lexer("""
+    query GetPost($postId: ID!) {
+      post(id: $postId) {
+        title
+        created_at
+      }
+    }
+    """)
+
+
+    let tokens: [StreamToken] = [
+      .query,
+      .name("GetPost"),
+      .leftParen,
+      .variable("postId"),
+      .colon,
+      .name("ID"),
+      .exclamation,
+      .rightParen,
+      .leftCurly,
+      .name("post"),
+      .leftParen,
+      .name("id"),
+      .colon,
+      .variable("postId"),
+      .rightParen,
+      .leftCurly,
+      .name("title"),
+      .name("created_at"),
+      .rightCurly,
+      .rightCurly
+    ]
+        
+    let expectedTokens = try! result.get().0.filter({ $0 != StreamToken.whitespace })
+    XCTAssertEqual(tokens, expectedTokens)
+    
+    assertParsed(GraphQlDocumentParser.executableDefinition,
+                input: ArraySlice(expectedTokens),
+                val: ExecutableDefinition.opDefinition(OperationDefinition([Selection.field(Field(
+                 named: "post",
+                 arguments: [
+                   Argument(
+                     name: "id",
+                     value: Value.variable("postId"))],
+                 selectionSet: [
+                  Selection.field(Field(named: "title")),
+                  Selection.field(Field(named: "created_at"))]))],
+                 operationType: OperationType.query,
+                 name: "GetPost",
+                 variableDefinitions: [
+                  VariableDefinition(name: "postId", type: Type.required(Type.named("ID")), defaultValue: nil, directives: [])],
+                 directives: [])))
+    
   }
   static var allTests = [
       ("testName", testName),
