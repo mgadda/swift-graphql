@@ -39,6 +39,13 @@ internal enum StreamToken : Equatable {
   case variable(String)
   case directive(String)
 
+  // Keywords
+  case query
+  case mutation
+  case subscription
+  case on
+  case fragment
+  
   public var asValue: Value? {
     switch self {
     case let .intValue(i): return Value.int(i)
@@ -139,7 +146,14 @@ internal func GraphQlLexer() -> StringParser<[StreamToken]> {
   let allParens = parens | curlies | brackets
   let punctuationAndBrackets = punctuation | allParens
 
-  let lexer = (whitespace | punctuation | values | name | variable | directive | punctuationAndBrackets)+
+  let query = accept("query") ^^ { _ in StreamToken.query }
+  let mutation = accept("mutation") ^^ { _ in StreamToken.mutation }
+  let subscription = accept("subscription") ^^ { _ in StreamToken.subscription }
+  let on = accept("on") ^^ { _ in StreamToken.on }
+  let fragment = accept("fragment") ^^ { _ in StreamToken.fragment }
+  let keywords = query | mutation | subscription | on | fragment
+  
+  let lexer = (whitespace | punctuation | keywords | values | name | variable | directive | punctuationAndBrackets)+
   return lexer
 }
   

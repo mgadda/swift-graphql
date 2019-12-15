@@ -68,13 +68,13 @@ public struct Field : Equatable  {
   public let directives: [Directive]
   public let selectionSet: [Selection]
   public init(
-    name: String,
+    named: String,
     alias: String? = nil,
     arguments: [Argument] = [],
     directives: [Directive] = [],
     selectionSet: [Selection] = []
   ) {
-    self.name = name
+    self.name = named
     self.alias = alias
     self.arguments = arguments
     self.directives = directives

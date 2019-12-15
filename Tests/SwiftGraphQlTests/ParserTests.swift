@@ -70,12 +70,12 @@ final class ParserTests: XCTestCase, ParserHelpers {
                  remaining: [])
   }
   func testValueListOne() {
-    assertParsed(GraphQlDocumentParser.valueList,
+    assertParsed(GraphQlDocumentParser.valueList(),
                  input: [StreamToken.intValue(0)],
                  val: [Value.int(0)], remaining: [])
   }
   func testValueListTwo() {
-    assertParsed(GraphQlDocumentParser.valueList,
+    assertParsed(GraphQlDocumentParser.valueList(),
                  input: [
                    StreamToken.intValue(0),
                    StreamToken.comma,
@@ -197,9 +197,9 @@ final class ParserTests: XCTestCase, ParserHelpers {
   }
   
   func testConstValue() {
-    assertParsed(GraphQlDocumentParser.constValue, input: [StreamToken.intValue(0)], val: Value.int(0), remaining: [])
+    assertParsed(GraphQlDocumentParser.value, input: [StreamToken.intValue(0)], val: Value.int(0), remaining: [])
     
-    assertParsed(GraphQlDocumentParser.constValue,
+    assertParsed(GraphQlDocumentParser.value,
                  input: [
                   StreamToken.leftBracket,
                   StreamToken.rightBracket
@@ -207,7 +207,7 @@ final class ParserTests: XCTestCase, ParserHelpers {
                  val: Value.list([]),
                  remaining: [])
     
-    assertParsed(GraphQlDocumentParser.constValue,
+    assertParsed(GraphQlDocumentParser.value,
                   input: [
                    StreamToken.leftCurly,
                    StreamToken.rightCurly
@@ -362,13 +362,28 @@ final class ParserTests: XCTestCase, ParserHelpers {
                  remaining: [])
   }
   func testInlineFragment() {
+    let inlineFragment = GraphQlDocumentParser.inlineFragment()
+    // ... on SomeType { aField }
+    assertParsed(inlineFragment,
+                 input: [
+                  StreamToken.ellipsis,
+                  StreamToken.on,
+                  StreamToken.name("SomeType"),
+                  StreamToken.leftCurly,
+                  StreamToken.name("aField"),
+                  StreamToken.rightCurly],
+                 val: Selection.inlineFragment(Type.named("SomeType"), [], [Selection.field(Field(named: "aField"))]),
+                 remaining: [])
     
-  }
-  func testSelection() {
-    
-  }
-  func testSelectionSet() {
-    
+    // ... { aField }
+    assertParsed(inlineFragment,
+                 input: [
+                  StreamToken.ellipsis,
+                  StreamToken.leftCurly,
+                  StreamToken.name("aField"),
+                  StreamToken.rightCurly],
+                 val: Selection.inlineFragment(nil, [], [Selection.field(Field(named: "aField"))]),
+                 remaining: [])
   }
   func testField() {
     // test
@@ -376,7 +391,7 @@ final class ParserTests: XCTestCase, ParserHelpers {
     
     assertParsed(field,
                  input: [StreamToken.name("test")],
-                 val: Field(name: "test"),
+                 val: Field(named: "test"),
                  remaining: [])
     
     // another_name: test
@@ -386,7 +401,7 @@ final class ParserTests: XCTestCase, ParserHelpers {
                   StreamToken.colon,
                   StreamToken.name("test")],
                  val: Field(
-                  name: "test",
+                  named: "test",
                   alias: "anotherName"),
                  remaining: [])
     
@@ -400,7 +415,7 @@ final class ParserTests: XCTestCase, ParserHelpers {
                   StreamToken.stringValue("value"),
                   StreamToken.rightParen],
                  val: Field(
-                  name: "test",
+                  named: "test",
                   directives: [
                     Directive(
                       name: "directive",
@@ -418,7 +433,7 @@ final class ParserTests: XCTestCase, ParserHelpers {
                   StreamToken.leftCurly,
                   StreamToken.name("subfield"),
                   StreamToken.rightCurly],
-                 val: Field(name: "field", selectionSet: [Selection.field(Field(name: "subfield"))]),
+                 val: Field(named: "field", selectionSet: [Selection.field(Field(named: "subfield"))]),
                  remaining: [])
     
     // field(name: 0)
@@ -430,12 +445,137 @@ final class ParserTests: XCTestCase, ParserHelpers {
      StreamToken.colon,
      StreamToken.intValue(0),
      StreamToken.rightParen],
-    val: Field(name: "field", arguments: [Argument(name: "name", value: Value.int(0))]),
+    val: Field(named: "field", arguments: [Argument(name: "name", value: Value.int(0))]),
     remaining: [])
   }
+  func testSelectionSet() {
+    let lexer = GraphQlLexer()
+    let result = lexer("""
+    {
+      aField(name: "value")
+      ...Fragment
+      ... on SomeType { anotherField }
+    }
+    """)
+    
+    
+    let tokens: [StreamToken] = [
+      .leftCurly,
+      .name("aField"),
+      .leftParen,
+      .name("name"),
+      .colon,
+      .stringValue("value"),
+      .rightParen,
+      .ellipsis,
+      .name("Fragment"),
+      .ellipsis,
+      .on,
+      .name("SomeType"),
+      .leftCurly,
+      .name("anotherField"),
+      .rightCurly,
+      .rightCurly
+    ]
+    
+    XCTAssertEqual(tokens, try! result.get().0.filter({ $0 != StreamToken.whitespace }))
+    
+    
+    let selectionSet = GraphQlDocumentParser.selectionSet()
+    assertParsed(selectionSet,
+                 input: ArraySlice(tokens),
+                 val: [
+                  Selection.field(
+                    Field(
+                      named: "aField",
+                      arguments: [
+                        Argument(
+                          name: "name",
+                          value: Value.string("value"))])),
+                  Selection.fragmentSpread("Fragment", []),
+                  Selection.inlineFragment(
+                    Type.named("SomeType"), [], [
+                      Selection.field(
+                        Field(named: "anotherField"))])],
+                 remaining: [])
+    
+  }
   
+  func testSimpleOpDefinition() {
+    let tokens: ArraySlice<StreamToken> = [
+      .leftCurly, .name("aField"), .rightCurly
+    ]
+    assertParsed(GraphQlDocumentParser.simpleOperationDefinition,
+                 input: tokens,
+                 val: OperationDefinition([
+                  Selection.field(Field(named: "aField"))]),
+                 remaining: [])
+  }
+  func testFullOperationDefinition() {
+    let lexer = GraphQlLexer()
+    let result = lexer("""
+    query GetFoo($var: String) {
+      field(var: $var)
+    }
+    """)
+    
+    let tokens: [StreamToken] = [
+      .query,
+      .name("GetFoo"),
+      .leftParen,
+      .variable("var"),
+      .colon,
+      .name("String"),
+      .rightParen,
+      .leftCurly,
+      .name("field"),
+      .leftParen,
+      .name("var"),
+      .colon,
+      .variable("var"),
+      .rightParen,
+      .rightCurly
+    ]
+        
+    XCTAssertEqual(tokens, try! result.get().0.filter({ $0 != StreamToken.whitespace }))
+    
+    assertParsed(GraphQlDocumentParser.fullOperationDefinition,
+                 input: ArraySlice(tokens),
+                 val: OperationDefinition([Selection.field(Field(
+                  named: "field",
+                  arguments: [
+                    Argument(
+                      name: "var",
+                      value: Value.variable("var"))]))],
+                  operationType: OperationType.query,
+                  name: "GetFoo",
+                  variableDefinitions: [
+                    VariableDefinition(name: "var", type: Type.named("String"), defaultValue: nil, directives: [])],
+                  directives: []),
+                 remaining: [])
+    
+  }
+  func testFragmentDefinition() {
+    assertParsed(GraphQlDocumentParser.fragmentDefinition,
+                 input: [
+                  StreamToken.fragment,
+                  .name("Foo"),
+                  .on,
+                  .name("SomeType"),
+                  .leftCurly,
+                  .name("aField"),
+                  .rightCurly],
+                 val: FragmentDefinition(
+                  name: "Foo",
+                  typeCondition: Type.named("SomeType"),
+                  directives: [],
+                  selectionSet: [
+                    Selection.field(
+                      Field(named: "aField"))]),
+                 remaining: [])
+  }
   static var allTests = [
-      ("testName", testName),
+//      ("testName", testName),
   ]
 }
 

@@ -56,14 +56,14 @@ public struct GraphQlDocumentParser {
 //
 //  // List values
   static let emptyList = accept(StreamToken.leftBracket) ~ accept(StreamToken.rightBracket) ^^ { _ in [Value]() }
-  static let valueList = value ~ (accept(StreamToken.comma) <~ value)*  ^^ { (first, rest) in [first] + rest }
-  static let nonEmptyList = accept(StreamToken.leftBracket) <~ valueList ~> accept(StreamToken.rightBracket)
+  static let valueList: () -> StreamTokenParser<[Value]> = { value ~ (accept(StreamToken.comma) <~ value)*  ^^ { (first, rest) in [first] + rest } }
+  static let nonEmptyList = accept(StreamToken.leftBracket) <~ valueList() ~> accept(StreamToken.rightBracket)
   static let listValue = emptyList | nonEmptyList ^^ { Value.list($0) }
 //
 //  // Object values
   static let emptyObject = accept(StreamToken.leftCurly) ~ accept(StreamToken.rightCurly) ^^ { _ in Value.object([String:Value]()) }
-  static let keyValue = name ~ (accept(StreamToken.colon) <~ value)
-  static let keyValueList = keyValue ~ (accept(StreamToken.comma) <~ keyValue)*  ^^ { (first, rest) in Value.object([String:Value](uniqueKeysWithValues: [first] + rest)) }
+  static let keyValue: () -> StreamTokenParser<(String, Value)> = { name ~ (accept(StreamToken.colon) <~ value) }
+  static let keyValueList = keyValue() ~ (accept(StreamToken.comma) <~ keyValue())*  ^^ { (first, rest) in Value.object([String:Value](uniqueKeysWithValues: [first] + rest)) }
   static let nonEmptyObject = accept(StreamToken.leftCurly) <~ keyValueList ~> accept(StreamToken.rightCurly)
   static let objectValue = emptyObject | nonEmptyObject
 //
@@ -91,12 +91,15 @@ public struct GraphQlDocumentParser {
   static let variableDefinitions = accept(StreamToken.leftParen) <~ variableList ~> accept(StreamToken.rightParen)
 
   static let variableAsValue = variable ^^ { Value.variable($0) }
-  static let value = intValue | floatValue | stringValue | booleanValue | nullValue | enumValue
-  static let constValue: StreamTokenParser<Value> = value | listValue | objectValue
-  static let nonConstValue = value | variableAsValue
+  // TODO: value definition is not adherent to spec because
+  // it does not differentiate between const and non-const
+  // values
+  static let value = intValue | floatValue | stringValue | booleanValue | nullValue | enumValue | listValue | objectValue | variableAsValue
+//  static let constValue: StreamTokenParser<Value> = value | listValue | objectValue
+//  static let nonConstValue = value | variableAsValue
 
   // Arguments
-  static let argument = name ~ accept(StreamToken.colon) ~ constValue ^^ { (name, _, value) in Argument(name: name, value: value) }
+  static let argument = name ~ accept(StreamToken.colon) ~ value ^^ { (name, _, value) in Argument(name: name, value: value) }
   // TODO: are empty argument lists allowed?
   static let argumentList = argument ~ (accept(StreamToken.comma) <~ argument)* ^^ { (first, rest) in [first] + rest }
   static let arguments = accept(StreamToken.leftParen) <~ argumentList ~> accept(StreamToken.rightParen)
@@ -105,48 +108,42 @@ public struct GraphQlDocumentParser {
   static let alias = name ~> accept(StreamToken.colon)
   static var field: () -> ArrayParser<StreamToken, Field> = {
     alias*? ~ name ~ arguments*? ~ directives ~ selectionSet()*? ^^ { (alias, name, arguments, directives, selectionSet) in
-      Field(name: name, alias: alias, arguments: arguments ?? [], directives: directives, selectionSet: selectionSet ?? [])
+      Field(named: name, alias: alias, arguments: arguments ?? [], directives: directives, selectionSet: selectionSet ?? [])
     }
   }
   static let fieldAsSelection = field() ^^ { Selection.field($0) }
-//  // note: does not check that "on" is *not* used
   static let fragmentSpread = accept(StreamToken.ellipsis) <~ name ~ directives ^^ { (name, directives) in
     Selection.fragmentSpread(name, directives)
   }
-  static let typeCondition = accept(StreamToken.name("on")) <~ type
-  static let selection: () -> StreamTokenParser<Selection> = { fieldAsSelection | fragmentSpread /*| inlineFragment */ }
-  static let selectionSet: () -> StreamTokenParser<[Selection]> = { accept(StreamToken.leftCurly) <~ selection()+ ~> accept(StreamToken.rightCurly) }
+  static let typeCondition = accept(StreamToken.on) <~ type
+  // inlineFragment must come before fragmentSpread because "... on" is more specific than "... Foo"
+  static let selection = fieldAsSelection | inlineFragment() | fragmentSpread
+  static let selectionSet: () -> StreamTokenParser<[Selection]> = { accept(StreamToken.leftCurly) <~ selection+ ~> accept(StreamToken.rightCurly) }
 
   static let inlineFragment: () -> StreamTokenParser<Selection> = { accept(StreamToken.ellipsis) <~ typeCondition*? ~ directives ~ selectionSet() ^^ { (typeCondition, directives, selectionSet) in
       Selection.inlineFragment(typeCondition, directives, selectionSet)
     }
   }
+
+  // Operations
+  static let queryOptType = accept(StreamToken.query) ^^ { _ in OperationType.query }
+  static let mutationOptType = accept(StreamToken.mutation) ^^ { _ in OperationType.mutation }
+  static let subscriptionOptType = accept(StreamToken.subscription) ^^ { _ in OperationType.subscription }
+  static let opType = queryOptType | mutationOptType | subscriptionOptType
+  static let simpleOperationDefinition = selectionSet() ^^ { OperationDefinition($0) }
+  static let fullOperationDefinition = opType ~ name*? ~ variableDefinitions*? ~ directives ~ selectionSet() ^^ { (opType, name, variableDefinitions, directives, selectionSet) in
+    OperationDefinition(selectionSet, operationType: opType, name: name, variableDefinitions: variableDefinitions ?? [], directives: directives)
+  }
 //
-//
-////  static let field = alias*? ~ name ~ arguments ~ directives ~ selectionSet ^^ { (alias, name, arguments, directives, selectionSet) in
-////    Field(alias: alias, name: name, arguments: arguments, directives: directives, selectionSet: selectionSet)
-////  }
-//
-//  // Operations
-//  static let queryOptType = accept(StreamToken.name("query")) ^^ { _ in OperationType.query }
-//  static let mutationOptType = accept(StreamToken.name("mutation")) ^^ { _ in OperationType.mutation }
-//  static let subscriptionOptType = accept(StreamToken.name("subscription")) ^^ { _ in OperationType.subscription }
-//  static let opType = queryOptType | mutationOptType | subscriptionOptType
-//  static let simpleOperationDefinition = selectionSet() ^^ { OperationDefinition($0) }
-//
-//  static let fullOperationDefinition = opType ~ name*? ~ variableDefinitions ~ directives ~ selectionSet() ^^ { (opType, name, variableDefinitions, directives, selectionSet) in
-//    OperationDefinition(selectionSet, operationType: opType, name: name, variableDefinitions: variableDefinitions, directives: directives)
-//  }
-//
-//  static let opDefinition = simpleOperationDefinition | fullOperationDefinition
-//  static let fragmentDefinition = accept(StreamToken.name("fragment")) <~ name ~ typeCondition ~ directives ~ selectionSet() ^^ { (name, typeCondition, directives, selectionSet) in
-//    FragmentDefinition(name: name, typeCondition: typeCondition, directives: directives, selectionSet: selectionSet)
-//  }
-//  static let executableDefinition = (opDefinition ^^ { ExecutableDefinition.opDefinition($0) }) | (fragmentDefinition ^^ { ExecutableDefinition.fragmentDefinition($0)})
+  static let opDefinition = simpleOperationDefinition | fullOperationDefinition
+  static let fragmentDefinition = accept(StreamToken.fragment) <~ name ~ typeCondition ~ directives ~ selectionSet() ^^ { (name, typeCondition, directives, selectionSet) in
+    FragmentDefinition(name: name, typeCondition: typeCondition, directives: directives, selectionSet: selectionSet)
+  }
+  static let executableDefinition = (opDefinition ^^ { ExecutableDefinition.opDefinition($0) }) | (fragmentDefinition ^^ { ExecutableDefinition.fragmentDefinition($0)})
 //  static let typeSystemDefinition: ArrayParser<StreamToken, TBD> = placeholder
 //  static let typeSystemExt: ArrayParser<StreamToken, TBD> = placeholder
-//  static let definition = executableDefinition// | typeSystemDefition | typeSystemExt
-//  static let document = definition+
+  static let definition = executableDefinition// | typeSystemDefition | typeSystemExt
+  static let document = definition+
 }
 
 //public func GraphQlParser(source: String) throws -> Document {
