@@ -79,7 +79,8 @@ struct GraphQlDocumentParser {
   static let namedType = name ^^ { Type.named($0) }
   static let listType = accept(StreamToken.leftBracket) <~ namedType ~> accept(StreamToken.rightBracket) ^^ { Type.list($0) }
   static let nonNullType = (namedType ~> accept(StreamToken.exclamation)) | (listType ~> accept(StreamToken.exclamation)) ^^ { Type.required($0) }
-  static let type = namedType | listType | nonNullType
+  // The order here matters:
+  static let type = nonNullType | listType | namedType
 //
 //  // Variable List Definitions
   static let variable = accept(StreamTokenVariable) ^^ { $0.asString! }
