@@ -67,7 +67,6 @@ internal enum StreamToken : Equatable {
   }
 }
 
-
 struct GraphQlLexer {
   // A Lexer is defined as a parser that converts String into an Array of StreamTokens
   static let tab = accept("\t")
@@ -153,7 +152,7 @@ struct GraphQlLexer {
   static let subscription = accept("subscription") ^^ { _ in StreamToken.subscription }
   static let on = accept("on") ^^ { _ in StreamToken.on }
   static let fragment = accept("fragment") ^^ { _ in StreamToken.fragment }
-  static let keywords = query | mutation | subscription | on | fragment
+  static let keywords = (query | mutation | subscription | on | fragment) ~> either(lookAhead(accept(oneOf: " {")), eof)
   
   static let lexer = (whitespace | punctuation | keywords | values | name | variable | directive | punctuationAndBrackets)+
 }

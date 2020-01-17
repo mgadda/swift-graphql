@@ -509,7 +509,7 @@ final class ParserTests: XCTestCase, ParserHelpers {
                   .on,
                   .name("SomeType"),
                   .leftCurly,
-                  .name("aField"),
+                  .name("query_field"),
                   .rightCurly],
                  val: FragmentDefinition(
                   name: "Foo",
@@ -517,7 +517,7 @@ final class ParserTests: XCTestCase, ParserHelpers {
                   directives: [],
                   selectionSet: [
                     Selection.field(
-                      Field(named: "aField"))]))
+                      Field(named: "query_field"))]))
   }
   func testExecutableDefinition() {
     let result = GraphQlLexer.lexer("""

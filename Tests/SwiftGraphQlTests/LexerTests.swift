@@ -31,6 +31,17 @@ Always sings aloud!\"\"\"
 """
     assertParsed(GraphQlLexer.blockQuotedStringValue, input: input, val: StreamToken.stringValue("How sweet to be a Cloud\nFloating in the Blue!\nEvery little cloud\nAlways sings aloud!"))
   }
+  
+  func testNameKeywordDisambiuation() {
+    let lexer = GraphQlLexer.keywords | GraphQlLexer.name
+    
+    assertParsed(lexer, input: "query_field", val: StreamToken.name("query_field"))
+    assertParsed(lexer, input: "queryfield", val: StreamToken.name("queryfield"))
+    assertParsed(lexer, input: "query {", val: StreamToken.query, remaining: " {")
+    assertParsed(lexer, input: "query", val: StreamToken.query, remaining: "")
+    
+  }
+  
   static var allTests = [
       ("testIntLiteral", testIntLiteral),
       ("testFloatLiteral", testFloatLiteral),
