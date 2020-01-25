@@ -1,8 +1,10 @@
 import XCTest
 @testable import SwiftGraphQl
 import SwiftParse
-final class LexerTests: XCTestCase, ParserHelpers {  
-  
+
+infix operator ~>: MultiplicationPrecedence
+
+final class LexerTests: XCTestCase, ParserHelpers {
   func testIntLiteral() {
     assertParsed(GraphQlLexer.intLiteral, input: "1", val: 1)
     assertParsed(GraphQlLexer.intLiteral, input: "-1", val: -1)
@@ -19,11 +21,11 @@ final class LexerTests: XCTestCase, ParserHelpers {
     assertParsed(GraphQlLexer.escapedUnicode, input: "\\uaf09", val: "\\uaf09")
   }
   func testDoubleQuotedStringValue() {
-    let input: Substring = "\"a string with\\n\\tsome special characters: \\u1234\""
+    let input = "\"a string with\\n\\tsome special characters: \\u1234\""
     assertParsed(GraphQlLexer.doubleQuotedStringValue, input: input, val: StreamToken.stringValue("a string with\\n\\tsome special characters: \\u1234"))
   }
   func testBlockQuotedStringValue() {
-    let input: Substring = """
+    let input = """
 \"\"\"How sweet to be a Cloud
 Floating in the Blue!
 Every little cloud
@@ -37,8 +39,8 @@ Always sings aloud!\"\"\"
     
     assertParsed(lexer, input: "query_field", val: StreamToken.name("query_field"))
     assertParsed(lexer, input: "queryfield", val: StreamToken.name("queryfield"))
-    assertParsed(lexer, input: "query {", val: StreamToken.query, remaining: " {")
-    assertParsed(lexer, input: "query", val: StreamToken.query, remaining: "")
+    assertParsed(lexer, input: "query {", val: StreamToken.query, remaining: AnyCollection(" {"))
+    assertParsed(lexer, input: "query", val: StreamToken.query)
     
   }
   

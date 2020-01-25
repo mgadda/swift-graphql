@@ -3,10 +3,10 @@
     "pins": [
       {
         "package": "SwiftParse",
-        "repositoryURL": "https://github.com/mgadda/swift-parse",
+        "repositoryURL": "/Users/mgadda/Documents/Projects/swift-parse",
         "state": {
-          "branch": "master",
-          "revision": "e474cfdbcf7999df572537921185798e10083149",
+          "branch": "0.4.0",
+          "revision": "33abc51be5ef8e9677634317d93ded5629083df2",
           "version": null
         }
       }
