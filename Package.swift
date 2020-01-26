@@ -14,9 +14,9 @@ let package = Package(
             targets: ["SwiftGraphQl"]),
     ],
     dependencies: [
-      //.package(url: "https://github.com/mgadda/swift-parse", .branch("master"))
+      .package(url: "https://github.com/mgadda/swift-parse", .branch("0.4.0"))
       // Uncomment for local development
-      .package(url: "../swift-parse", .branch("0.4.0"))
+//      .package(url: "../swift-parse", .branch("0.4.0"))
     ],
     targets: [
         .target(
