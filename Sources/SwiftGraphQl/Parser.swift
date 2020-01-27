@@ -98,7 +98,9 @@ struct GraphQlDocumentParser {
   // TODO: value definition is not adherent to spec because
   // it does not differentiate between const and non-const
   // values
-  static let value = intValue | floatValue | stringValue | booleanValue | nullValue | enumValue | listValue | objectValue | variableAsValue
+  static let value1 = intValue | floatValue | stringValue | booleanValue
+  static let value2 = nullValue | enumValue | listValue | objectValue | variableAsValue
+  static let value = value1 | value2
 //  static let constValue: StreamTokenParser<Value> = value | listValue | objectValue
 //  static let nonConstValue = value | variableAsValue
 

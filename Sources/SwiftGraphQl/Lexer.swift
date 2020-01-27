@@ -70,15 +70,12 @@ internal enum StreamToken : Equatable {
 
 struct GraphQlLexer {
   // A Lexer is defined as a parser that converts String into an Array of StreamTokens
-  static let tab = match("\t")
-  static let newline = match("\n")
-  static let space = match(" ")
-  static let whitespace = (space | newline | tab)+ ^^ { _ in StreamToken.whitespace }
+  static let whitespace = (" " | "\n" | "\t")+ ^^ { _ in StreamToken.whitespace }
 
-  static let digits = match(CharacterSet.decimalDigits)+ ^^ { String($0) }
+  static let digits = CharacterSet.decimalDigits+ ^^ { String($0) }
   
-  static let fracPart = match(".") <~ digits
-  static let optSign = match("-")*? ^^ { $0.map { String($0)} ?? "" }
+  static let fracPart = "." <~ digits
+  static let optSign = "-"*? ^^ { $0.map { String($0)} ?? "" }
   static let intString = optSign ~ digits ^^ { $0 + $1 }
   static let intLiteral = intString ^^ { Int($0)! }
   static let floatLiteral = intString ~ fracPart*?  ^^ { parsed -> Float in
@@ -94,7 +91,7 @@ struct GraphQlLexer {
   static let intValue = intLiteral ^^ { StreamToken.intValue($0) }
   static let floatValue = floatLiteral ^^ { StreamToken.floatValue($0)}
 
-  static let escapedCharacter = match("\\") ~ match(CharacterSet(charactersIn: "\"\\/bfnrt")) ^^ {
+  static let escapedCharacter = "\\" ~ CharacterSet(charactersIn: "\"\\/bfnrt") ^^ {
     (slash, c) in "\(slash)\(c)"
   }
 
@@ -114,52 +111,53 @@ struct GraphQlLexer {
 
   static let blockQuote = match(prefix: "\"\"\"")
   // Allow for less than 3 consecutive instances of '"'
+  // TODO: this is broken.
   static let blockQuotedStringValue = blockQuote <~ reject(element: Character("\""))* ~> blockQuote ^^ { StreamToken.stringValue(String($0)) }
   static let stringValue = blockQuotedStringValue | doubleQuotedStringValue
 
-  static let leftCurly = match("{") ^^ { _ in StreamToken.leftCurly }
-  static let rightCurly = match("}") ^^ { _ in StreamToken.rightCurly }
+  static let leftCurly = "{" ^^ { _ in StreamToken.leftCurly }
+  static let rightCurly = "}" ^^ { _ in StreamToken.rightCurly }
   static let curlies = leftCurly | rightCurly
 
-  static let rightBracket = match("]") ^^ { _ in StreamToken.rightBracket }
-  static let leftBracket = match("[") ^^ { _ in StreamToken.leftBracket }
+  static let rightBracket = "]" ^^ { _ in StreamToken.rightBracket }
+  static let leftBracket = "[" ^^ { _ in StreamToken.leftBracket }
   static let brackets = leftBracket | rightBracket
 
-  static let rightParen = match(")") ^^ { _ in StreamToken.rightParen }
-  static let leftParen = match("(") ^^ { _ in StreamToken.leftParen }
+  static let rightParen = ")" ^^ { _ in StreamToken.rightParen }
+  static let leftParen = "(" ^^ { _ in StreamToken.leftParen }
   static let parens = leftParen | rightParen
 
-  static let colon = match(":") ^^ { _ in StreamToken.colon }
-  static let comma = match(",") ^^ { _ in StreamToken.comma }
-  static let ellipsis = match("...") ^^ { _ in StreamToken.ellipsis }
-  static let assignment = match("=") ^^ { _ in StreamToken.assignment }
-  static let exclamation = match("!") ^^ { _ in StreamToken.exclamation }
+  static let colon = ":" ^^ { _ in StreamToken.colon }
+  static let comma = "," ^^ { _ in StreamToken.comma }
+  static let ellipsis = "..." ^^ { _ in StreamToken.ellipsis }
+  static let assignment = "=" ^^ { _ in StreamToken.assignment }
+  static let exclamation = "!" ^^ { _ in StreamToken.exclamation }
 
   static let nameStart = match(CharacterSet.alphanumerics)
   static let nameCharacter = nameStart | match(element: Character("_"))
   static let name = nameStart ~ nameCharacter* ^^ { StreamToken.name(String($0) + String($1)) }
-  static let variable = match("$") <~ nameCharacter+ ^^ { StreamToken.variable(String($0)) }
-  static let directive = match("@") <~ nameCharacter+ ^^ { StreamToken.directive(String($0)) }
+  static let variable = "$" <~ nameCharacter+ ^^ { StreamToken.variable(String($0)) }
+  static let directive = "@" <~ nameCharacter+ ^^ { StreamToken.directive(String($0)) }
 
-  static let booleanValue =
-    match("true") |
-    match("false") ^^ { bool in
+  static let booleanValue = "true" | "false" ^^ { bool in
       StreamToken.booleanValue(String(bool) == "true")
   }
   
-  static let nullValue = match("null") ^^ { _ in StreamToken.nullValue }
+  static let nullValue = "null" ^^ { _ in StreamToken.nullValue }
   static let values = intValue | floatValue | stringValue | nullValue | booleanValue
   static let punctuation = assignment | exclamation | colon | comma | ellipsis
   static let allParens = parens | curlies | brackets
   static let punctuationAndBrackets = punctuation | allParens
 
-  static let query = match("query") ^^ { _ in StreamToken.query }
-  static let mutation = match("mutation") ^^ { _ in StreamToken.mutation }
-  static let subscription = match("subscription") ^^ { _ in StreamToken.subscription }
-  static let on = match("on") ^^ { _ in StreamToken.on }
-  static let fragment = match("fragment") ^^ { _ in StreamToken.fragment }
-  static let keywords = (query | mutation | subscription | on | fragment) ~> either(lookAhead(match(CharacterSet(charactersIn: " {"))), eof)
+  static let query = "query" ^^ { _ in StreamToken.query }
+  static let mutation = "mutation" ^^ { _ in StreamToken.mutation }
+  static let subscription = "subscription" ^^ { _ in StreamToken.subscription }
+  static let on = "on" ^^ { _ in StreamToken.on }
+  static let fragment = "fragment" ^^ { _ in StreamToken.fragment }
+  static let keywords = (query | mutation | subscription | on | fragment) ~> either(lookAhead(CharacterSet(charactersIn: " {")), eof)
   
-  static let lexer = (whitespace | punctuation | keywords | values | name | variable | directive | punctuationAndBrackets)+
+  static let lexer1 = whitespace | punctuation | keywords | values
+  static let lexer2 = name | variable | directive | punctuationAndBrackets
+  static let lexer = (lexer1 | lexer2)+
 }
   
