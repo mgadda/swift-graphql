@@ -5,9 +5,9 @@
         "package": "SwiftParse",
         "repositoryURL": "https://github.com/mgadda/swift-parse",
         "state": {
-          "branch": "0.4.0",
-          "revision": "089c4a44637d099c8640605af9f1ed57668169cd",
-          "version": null
+          "branch": null,
+          "revision": "56c5beb92da9c5b1b6478fc49ffb7dee70c4fc7e",
+          "version": "0.4.0"
         }
       }
     ]
