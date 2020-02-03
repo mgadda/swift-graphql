@@ -69,7 +69,10 @@ internal enum StreamToken : Equatable {
 }
 
 struct GraphQlLexer {
-  // A Lexer is defined as a parser that converts String into an Array of StreamTokens
+  static let sourceCharacterSet = CharacterSet(charactersIn: "\u{0020}"..."\u{FFFF}")
+    .union(CharacterSet.init(charactersIn: "\u{0009}\u{000A}\u{000D}"))
+  static let sourceCharacter = match(sourceCharacterSet)
+    
   static let whitespace = (" " | "\n" | "\t")+ ^^ { _ in StreamToken.whitespace }
 
   static let digits = CharacterSet.decimalDigits+ ^^ { String($0) }
@@ -101,19 +104,33 @@ struct GraphQlLexer {
     String([d1, d2, d3, d4])
   }
   static let escapedUnicode = match("\\u") ~ unicodeCharacter ^^ { (u, c) in u + c }
-  static let invalidStringChars = reject(anyOf: "\"\\\n") ^^ { String($0) }
-  static let stringCharacter = invalidStringChars | escapedCharacter | escapedUnicode
   
-  static let stringQuote = match(element: Character("\""))
-  static let doubleQuotedStringValue = stringQuote <~ stringCharacter* ~> stringQuote ^^ { x in
-    StreamToken.stringValue(x.joined())
-  }
-
-  static let blockQuote = match(prefix: "\"\"\"")
-  // Allow for less than 3 consecutive instances of '"'
-  // TODO: this is broken.
-  static let blockQuotedStringValue = blockQuote <~ reject(element: Character("\""))* ~> blockQuote ^^ { StreamToken.stringValue(String($0)) }
-  static let stringValue = blockQuotedStringValue | doubleQuotedStringValue
+  static let linefeed = match(element: Character("\u{000A}"))
+  static let carriageReturn = match(element: Character("\u{000D}")) ~> lookAhead(not(linefeed))
+  static let crlf = match(element: Character("\u{000D}\u{000A}"))
+  static let lineTerminator = linefeed | carriageReturn | crlf
+     
+  static let invalidStringChars =
+    CharacterSet(charactersIn: "\"\\") |
+    lineTerminator
+  
+  static let stringCharacter =
+    ((sourceCharacter & not(invalidStringChars)) ^^ { String($0) }) |
+    escapedUnicode |
+    escapedCharacter
+   
+  static let blockQuote = match(prefix: "\"\"\"") ^^ { String($0) }
+  static let escapedBlockQuote = match(prefix: "\\\"\"\"") ^^ { String($0) }
+  
+  static let blockStringCharacter =
+    (and(map(sourceCharacter) { String($0) }, not(blockQuote | escapedBlockQuote)))
+    // | escapedBlockQuote // TODO: should this case be supported?
+  
+  static let emptyDoubleQuotedStringValue = "\"\"" ~> lookAhead(not("\"")) ^^ { _ in StreamToken.stringValue("") }
+  static let doubleQuotedStringValue = "\"" <~ stringCharacter* ~> "\""                  ^^ { StreamToken.stringValue($0.joined()) }
+  static let blockQuotedStringValue = blockQuote <~ blockStringCharacter* ~> blockQuote ^^ { StreamToken.stringValue($0.joined())}
+  // blockQuotedStringValue must come before doubleQuotedStringValue
+  static let stringValue = emptyDoubleQuotedStringValue | blockQuotedStringValue | doubleQuotedStringValue
 
   static let leftCurly = "{" ^^ { _ in StreamToken.leftCurly }
   static let rightCurly = "}" ^^ { _ in StreamToken.rightCurly }
