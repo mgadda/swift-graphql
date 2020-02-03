@@ -126,8 +126,8 @@ struct GraphQlLexer {
     (and(map(sourceCharacter) { String($0) }, not(blockQuote | escapedBlockQuote)))
     // | escapedBlockQuote // TODO: should this case be supported?
   
-  static let emptyDoubleQuotedStringValue = "\"\"" ~> lookAhead(not("\"")) ^^ { _ in StreamToken.stringValue("") }
-  static let doubleQuotedStringValue = "\"" <~ stringCharacter* ~> "\""                  ^^ { StreamToken.stringValue($0.joined()) }
+  static let emptyDoubleQuotedStringValue = "\"\"" ~> lookAhead(not("\""))              ^^ { _ in StreamToken.stringValue("") }
+  static let doubleQuotedStringValue = "\"" <~ stringCharacter* ~> "\""                 ^^ { StreamToken.stringValue($0.joined()) }
   static let blockQuotedStringValue = blockQuote <~ blockStringCharacter* ~> blockQuote ^^ { StreamToken.stringValue($0.joined())}
   // blockQuotedStringValue must come before doubleQuotedStringValue
   static let stringValue = emptyDoubleQuotedStringValue | blockQuotedStringValue | doubleQuotedStringValue
