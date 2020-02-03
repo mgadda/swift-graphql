@@ -6,6 +6,7 @@
 //
 
 import SwiftParse
+import Foundation
 
 infix operator ~>: MultiplicationPrecedence
 
@@ -68,19 +69,17 @@ internal enum StreamToken : Equatable {
 }
 
 struct GraphQlLexer {
-  // A Lexer is defined as a parser that converts String into an Array of StreamTokens
-  static let tab = accept("\t")
-  static let newline = accept("\n")
-  static let space = accept(" ")
-  static let whitespace = (space | newline | tab)+ ^^ { _ in StreamToken.whitespace }
+  static let sourceCharacterSet = CharacterSet(charactersIn: "\u{0020}"..."\u{FFFF}")
+    .union(CharacterSet.init(charactersIn: "\u{0009}\u{000A}\u{000D}"))
+  static let sourceCharacter = match(sourceCharacterSet)
+    
+  static let whitespace = (" " | "\n" | "\t")+ ^^ { _ in StreamToken.whitespace }
 
-  static let digit: StringParser<String> = { source in
-    acceptIf(source) { $0 >= "0" && $0 <= "9" }
-  }
-
-  static let fracPart = accept(".") <~ digit+ ^^ { $0.joined() }
-  static let optSign = accept("-")*?
-  static let intString = optSign ~ digit+ ^^ { ($0.0 ?? "") + $0.1.joined() }
+  static let digits = CharacterSet.decimalDigits+ ^^ { String($0) }
+  
+  static let fracPart = "." <~ digits
+  static let optSign = "-"*? ^^ { $0.map { String($0)} ?? "" }
+  static let intString = optSign ~ digits ^^ { $0 + $1 }
   static let intLiteral = intString ^^ { Int($0)! }
   static let floatLiteral = intString ~ fracPart*?  ^^ { parsed -> Float in
     switch parsed {
@@ -95,65 +94,87 @@ struct GraphQlLexer {
   static let intValue = intLiteral ^^ { StreamToken.intValue($0) }
   static let floatValue = floatLiteral ^^ { StreamToken.floatValue($0)}
 
-  static let escapedCharacter = accept("\\") ~ accept(oneOf: "\"\\/bfnrt") ^^ { (slash, c) in slash + c }
-
-  static func hexDigit(source: Substring) -> ParseResult<Substring, String> {
-    acceptIf(source, fn: { (ch: Substring.Element) -> Bool in
-      (ch >= "0" && ch <= "9") || (ch >= "a" && ch <= "f") || (ch >= "A" && ch <= "F")
-    })
+  static let escapedCharacter = "\\" ~ CharacterSet(charactersIn: "\"\\/bfnrt") ^^ {
+    (slash, c) in "\(slash)\(c)"
   }
 
-  static let unicodeCharacter = map(hexDigit ~ hexDigit ~ hexDigit ~ hexDigit) { (d1, d2, d3, d4) in [d1,d2,d3,d4].joined() }
-  static let escapedUnicode = accept("\\u") ~ unicodeCharacter ^^ { (u, c) in u + c }
-  static let stringCharacter = reject(allOf: "\"\\\n") | escapedCharacter | escapedUnicode
+  static let hexDigit = match(CharacterSet(charactersIn: "abcdefABCDEF0123456789"))
+    
+  static let unicodeCharacter = hexDigit ~ hexDigit ~ hexDigit ~ hexDigit ^^ { (d1, d2, d3, d4) in
+    String([d1, d2, d3, d4])
+  }
+  static let escapedUnicode = match("\\u") ~ unicodeCharacter ^^ { (u, c) in u + c }
+  
+  static let linefeed = match(element: Character("\u{000A}"))
+  static let carriageReturn = match(element: Character("\u{000D}")) ~> lookAhead(not(linefeed))
+  static let crlf = match(element: Character("\u{000D}\u{000A}"))
+  static let lineTerminator = linefeed | carriageReturn | crlf
+     
+  static let invalidStringChars =
+    CharacterSet(charactersIn: "\"\\") |
+    lineTerminator
+  
+  static let stringCharacter =
+    ((sourceCharacter & not(invalidStringChars)) ^^ { String($0) }) |
+    escapedUnicode |
+    escapedCharacter
+   
+  static let blockQuote = match(prefix: "\"\"\"") ^^ { String($0) }
+  static let escapedBlockQuote = match(prefix: "\\\"\"\"") ^^ { String($0) }
+  
+  static let blockStringCharacter =
+    (and(map(sourceCharacter) { String($0) }, not(blockQuote | escapedBlockQuote)))
+    // | escapedBlockQuote // TODO: should this case be supported?
+  
+  static let emptyDoubleQuotedStringValue = "\"\"" ~> lookAhead(not("\""))              ^^ { _ in StreamToken.stringValue("") }
+  static let doubleQuotedStringValue = "\"" <~ stringCharacter* ~> "\""                 ^^ { StreamToken.stringValue($0.joined()) }
+  static let blockQuotedStringValue = blockQuote <~ blockStringCharacter* ~> blockQuote ^^ { StreamToken.stringValue($0.joined())}
+  // blockQuotedStringValue must come before doubleQuotedStringValue
+  static let stringValue = emptyDoubleQuotedStringValue | blockQuotedStringValue | doubleQuotedStringValue
 
-  static let stringQuote = accept("\"")
-  static let doubleQuotedStringValue = stringQuote <~ stringCharacter* ~> stringQuote ^^ { StreamToken.stringValue($0.joined()) }
-
-  static let blockQuote = accept("\"\"\"")
-  // Allow for less than 3 consecutive instances of '"'
-  static let blockQuotedStringValue = blockQuote <~ reject(character: "\"")* ~> blockQuote ^^ { StreamToken.stringValue($0.joined()) }
-  static let stringValue = blockQuotedStringValue | doubleQuotedStringValue
-
-
-  static let leftCurly = accept("{") ^^ { _ in StreamToken.leftCurly }
-  static let rightCurly = accept("}") ^^ { _ in StreamToken.rightCurly }
+  static let leftCurly = "{" ^^ { _ in StreamToken.leftCurly }
+  static let rightCurly = "}" ^^ { _ in StreamToken.rightCurly }
   static let curlies = leftCurly | rightCurly
 
-  static let rightBracket = accept("]") ^^ { _ in StreamToken.rightBracket }
-  static let leftBracket = accept("[") ^^ { _ in StreamToken.leftBracket }
+  static let rightBracket = "]" ^^ { _ in StreamToken.rightBracket }
+  static let leftBracket = "[" ^^ { _ in StreamToken.leftBracket }
   static let brackets = leftBracket | rightBracket
 
-  static let rightParen = accept(")") ^^ { _ in StreamToken.rightParen }
-  static let leftParen = accept("(") ^^ { _ in StreamToken.leftParen }
+  static let rightParen = ")" ^^ { _ in StreamToken.rightParen }
+  static let leftParen = "(" ^^ { _ in StreamToken.leftParen }
   static let parens = leftParen | rightParen
 
-  static let colon = accept(":") ^^ { _ in StreamToken.colon }
-  static let comma = accept(",") ^^ { _ in StreamToken.comma }
-  static let ellipsis = accept("...") ^^ { _ in StreamToken.ellipsis }
-  static let assignment = accept("=") ^^ { _ in StreamToken.assignment }
-  static let exclamation = accept("!") ^^ { _ in StreamToken.exclamation }
+  static let colon = ":" ^^ { _ in StreamToken.colon }
+  static let comma = "," ^^ { _ in StreamToken.comma }
+  static let ellipsis = "..." ^^ { _ in StreamToken.ellipsis }
+  static let assignment = "=" ^^ { _ in StreamToken.assignment }
+  static let exclamation = "!" ^^ { _ in StreamToken.exclamation }
 
-  static let nameCharacter = accept(range: "a"..."z") | accept(range: "A"..."Z") | accept(range: "0"..."9") | accept("_")
-  static let name = nameCharacter+ ^^ { StreamToken.name($0.joined()) }
+  static let nameStart = match(CharacterSet.alphanumerics)
+  static let nameCharacter = nameStart | match(element: Character("_"))
+  static let name = nameStart ~ nameCharacter* ^^ { StreamToken.name(String($0) + String($1)) }
+  static let variable = "$" <~ nameCharacter+ ^^ { StreamToken.variable(String($0)) }
+  static let directive = "@" <~ nameCharacter+ ^^ { StreamToken.directive(String($0)) }
 
-  static let variable = accept("$") <~ nameCharacter+ ^^ { StreamToken.variable($0.joined()) }
-  static let directive = accept("@") <~ nameCharacter+ ^^ { StreamToken.directive($0.joined()) }
-
-  static let booleanValue = accept("true") | accept("false") ^^ { bool in StreamToken.booleanValue(bool == "true") }
-  static let nullValue = accept("null") ^^ { _ in StreamToken.nullValue }
+  static let booleanValue = "true" | "false" ^^ { bool in
+      StreamToken.booleanValue(String(bool) == "true")
+  }
+  
+  static let nullValue = "null" ^^ { _ in StreamToken.nullValue }
   static let values = intValue | floatValue | stringValue | nullValue | booleanValue
   static let punctuation = assignment | exclamation | colon | comma | ellipsis
   static let allParens = parens | curlies | brackets
   static let punctuationAndBrackets = punctuation | allParens
 
-  static let query = accept("query") ^^ { _ in StreamToken.query }
-  static let mutation = accept("mutation") ^^ { _ in StreamToken.mutation }
-  static let subscription = accept("subscription") ^^ { _ in StreamToken.subscription }
-  static let on = accept("on") ^^ { _ in StreamToken.on }
-  static let fragment = accept("fragment") ^^ { _ in StreamToken.fragment }
-  static let keywords = (query | mutation | subscription | on | fragment) ~> either(lookAhead(accept(oneOf: " {")), eof)
+  static let query = "query" ^^ { _ in StreamToken.query }
+  static let mutation = "mutation" ^^ { _ in StreamToken.mutation }
+  static let subscription = "subscription" ^^ { _ in StreamToken.subscription }
+  static let on = "on" ^^ { _ in StreamToken.on }
+  static let fragment = "fragment" ^^ { _ in StreamToken.fragment }
+  static let keywords = (query | mutation | subscription | on | fragment) ~> either(lookAhead(CharacterSet(charactersIn: " {")), eof)
   
-  static let lexer = (whitespace | punctuation | keywords | values | name | variable | directive | punctuationAndBrackets)+
+  static let lexer1 = whitespace | punctuation | keywords | values
+  static let lexer2 = name | variable | directive | punctuationAndBrackets
+  static let lexer = (lexer1 | lexer2)+
 }
   

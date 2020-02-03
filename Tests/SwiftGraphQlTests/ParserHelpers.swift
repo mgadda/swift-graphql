@@ -10,44 +10,44 @@ import XCTest
 @testable import SwiftParse
 
 protocol ParserHelpers {
-  func assertParsed<T: Equatable & Emptiness, U: Equatable>(
-    _ parser: Parser<T, U>,
+  func assertParsed<T: Collection & Emptiness, U: Equatable>(
+    _ parser: StandardParser<T, U>,
     input: T,
     val: U,
-    remaining: T,
+    remaining: AnyCollection<T.Element>,
     message: @autoclosure () -> String,
     file: StaticString,
     line: UInt
-  )
+  )  where T.Element: Equatable
 }
 
-extension ParserHelpers {
-  func assertParsed<T: Equatable & Emptiness, U: Equatable>(
-        _ parser: Parser<T, U>,
+extension ParserHelpers {  
+  func assertParsed<T: Collection & Emptiness, U: Equatable>(
+    _ parser: StandardParser<T, U>,
     input: T,
     val: U,
-    remaining: T = T.emptyValue,
+    remaining: AnyCollection<T.Element> = AnyCollection(T.emptyValue),
     message: @autoclosure () -> String = "",
     file: StaticString = #file,
     line: UInt = #line
-  ) {
-    switch parser(input) {
+  ) where T.Element: Equatable {
+    switch parser(AnyCollection(input)) {
     case let .success(s):
         XCTAssertEqual(s.0, val, "val differs", file: file, line: line)
         XCTAssertEqual(s.1, remaining, "remaining differs", file: file, line: line)
     case let .failure(e):
-      XCTFail("Failed to parse at \(e.at). Reason: \(e.reason ?? "")", file: file, line: line)
+      XCTFail("Failed to parse at \(Array(e.at.prefix(3))). Reason: \(e.reason ?? "")", file: file, line: line)
     }
   }
 
-  func assertNotParsed<T: Equatable & Emptiness, U: Equatable>(
-    _ parser: Parser<T, U>,
+  func assertNotParsed<T: Collection & Emptiness, U: Equatable>(
+    _ parser: StandardParser<T, U>,
     input: T,
     _ message: @autoclosure () -> String = "",
     file: StaticString = #file,
     line: UInt = #line
   ) {
-    switch parser(input) {
+    switch parser(AnyCollection(input)) {
     case let .success(parsed, remaining):
       XCTFail("Succeeded at parsing \(parsed) but should have failed. Remaining = \(remaining)", file: file, line: line)
     case .failure: return
@@ -60,9 +60,20 @@ protocol Emptiness {
   static var emptyValue: Self { get }
 }
 
-extension Substring : Emptiness {
+extension AnyCollection : Emptiness {
+  static var emptyValue: Self { AnyCollection([]) }
+}
+
+extension AnyCollection : Equatable where Element: Equatable {
+  public static func ==(lhs: AnyCollection<Element>, rhs: AnyCollection<Element>) -> Bool {
+    lhs.elementsEqual(rhs) { $0 == $1 }
+  }
+}
+
+extension String : Emptiness {
   static var emptyValue: Self { "" }
 }
-extension ArraySlice : Emptiness {
-  static var emptyValue: Self { ArraySlice([]) }
+
+extension Array : Emptiness {
+  static var emptyValue: Self { [] }
 }

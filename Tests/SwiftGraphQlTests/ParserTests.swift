@@ -47,7 +47,7 @@ final class ParserTests: XCTestCase, ParserHelpers {
   func testValueListOne() {
     assertParsed(GraphQlDocumentParser.valueList(),
                  input: [StreamToken.intValue(0)],
-                 val: [Value.int(0)], remaining: [])
+                 val: [Value.int(0)])
   }
   func testValueListTwo() {
     assertParsed(GraphQlDocumentParser.valueList(),
@@ -161,52 +161,61 @@ final class ParserTests: XCTestCase, ParserHelpers {
   }
   
   func testConstValue() {
-    assertParsed(GraphQlDocumentParser.value, input: [StreamToken.intValue(0)], val: Value.int(0), remaining: [])
+    assertParsed(
+      GraphQlDocumentParser.value,
+      input: [StreamToken.intValue(0)],
+      val: Value.int(0))
     
-    assertParsed(GraphQlDocumentParser.value,
-                 input: [
-                  StreamToken.leftBracket,
-                  StreamToken.rightBracket
-                 ],
-                 val: Value.list([]))
+    assertParsed(
+      GraphQlDocumentParser.value,
+      input: [
+        StreamToken.leftBracket,
+        StreamToken.rightBracket
+      ],
+      val: Value.list([]))
     
-    assertParsed(GraphQlDocumentParser.value,
-                  input: [
-                   StreamToken.leftCurly,
-                   StreamToken.rightCurly
-                  ],
-                  val: Value.object([String:Value]()),
-                  remaining: [])
+    assertParsed(
+      GraphQlDocumentParser.value,
+        input: [
+          StreamToken.leftCurly,
+          StreamToken.rightCurly
+        ],
+        val: Value.object([String:Value]()))
   }
+  
   func testArguments() {
-    assertParsed(GraphQlDocumentParser.arguments,
-                 input: [
-                  StreamToken.leftParen,
-                  StreamToken.name("test"),
-                  StreamToken.colon,
-                  StreamToken.intValue(0),
-                  StreamToken.rightParen],
-                 val: [Argument(name: "test", value: Value.int(0))])
+    assertParsed(
+      GraphQlDocumentParser.arguments,
+      input: [
+        StreamToken.leftParen,
+        StreamToken.name("test"),
+        StreamToken.colon,
+        StreamToken.intValue(0),
+        StreamToken.rightParen],
+      val: [Argument(name: "test", value: Value.int(0))])
   }
+  
   func testDirective() {
     // @test
-    assertParsed(GraphQlDocumentParser.directive,
-                  input: [
-                   StreamToken.directive("test")],
-                  val: Directive(name: "test", arguments: []),
-                  remaining: [])
+    assertParsed(
+      GraphQlDocumentParser.directive,
+      input: [
+       StreamToken.directive("test")],
+      val: Directive(name: "test", arguments: []))
             
     // @test(key: 0)
-    assertParsed(GraphQlDocumentParser.directive,
-                 input: [
-                  StreamToken.directive("test"),
-                  StreamToken.leftParen,
-                  StreamToken.name("key"),
-                  StreamToken.colon,
-                  StreamToken.intValue(0),
-                  StreamToken.rightParen],
-                 val: Directive(name: "test", arguments: [Argument(name: "key", value: Value.int(0))]))
+    assertParsed(
+      GraphQlDocumentParser.directive,
+      input: [
+        StreamToken.directive("test"),
+        StreamToken.leftParen,
+        StreamToken.name("key"),
+        StreamToken.colon,
+        StreamToken.intValue(0),
+        StreamToken.rightParen],
+      val: Directive(name: "test", arguments: [Argument(name: "key", value: Value.int(0))]))
   }
+  
   func testNamedType() {
     // Test
     assertParsed(GraphQlDocumentParser.namedType,
@@ -390,17 +399,17 @@ final class ParserTests: XCTestCase, ParserHelpers {
      StreamToken.colon,
      StreamToken.intValue(0),
      StreamToken.rightParen],
-    val: Field(named: "field", arguments: [Argument(name: "name", value: Value.int(0))]),
-    remaining: [])
+    val: Field(named: "field", arguments: [Argument(name: "name", value: Value.int(0))]))
   }
+  
   func testSelectionSet() {
-    let result = GraphQlLexer.lexer("""
+    let result = GraphQlLexer.lexer(AnyCollection("""
     {
       aField(name: "value")
       ...Fragment
       ... on SomeType { anotherField }
     }
-    """)
+    """))
     
     
     let tokens: [StreamToken] = [
@@ -427,7 +436,7 @@ final class ParserTests: XCTestCase, ParserHelpers {
     
     let selectionSet = GraphQlDocumentParser.selectionSet()
     assertParsed(selectionSet,
-                 input: ArraySlice(tokens),
+                 input: tokens,
                  val: [
                   Selection.field(
                     Field(
@@ -445,8 +454,10 @@ final class ParserTests: XCTestCase, ParserHelpers {
   }
   
   func testSimpleOpDefinition() {
-    let tokens: ArraySlice<StreamToken> = [
-      .leftCurly, .name("aField"), .rightCurly
+    let tokens = [
+      StreamToken.leftCurly,
+      .name("aField"),
+      .rightCurly
     ]
     assertParsed(GraphQlDocumentParser.simpleOperationDefinition,
                  input: tokens,
@@ -454,13 +465,13 @@ final class ParserTests: XCTestCase, ParserHelpers {
                   Selection.field(Field(named: "aField"))]))
   }
   func testFullOperationDefinition() {
-    let result = GraphQlLexer.lexer("""
+    let result = GraphQlLexer.lexer(AnyCollection("""
     query GetFoo($var: String) {
       field(var: $var) {
         aField
       }
     }
-    """)
+    """))
     
     let tokens: [StreamToken] = [
       .query,
@@ -486,7 +497,7 @@ final class ParserTests: XCTestCase, ParserHelpers {
     XCTAssertEqual(tokens, try! result.get().0.filter({ $0 != StreamToken.whitespace }))
     
     assertParsed(GraphQlDocumentParser.fullOperationDefinition,
-                 input: ArraySlice(tokens),
+                 input: tokens,
                  val: OperationDefinition([Selection.field(Field(
                   named: "field",
                   arguments: [
@@ -520,14 +531,14 @@ final class ParserTests: XCTestCase, ParserHelpers {
                       Field(named: "query_field"))]))
   }
   func testExecutableDefinition() {
-    let result = GraphQlLexer.lexer("""
+    let result = GraphQlLexer.lexer(AnyCollection("""
     query GetPost($postId: ID!) {
       post(id: $postId) {
         title
         created_at
       }
     }
-    """)
+    """))
 
 
     let tokens: [StreamToken] = [
@@ -557,7 +568,7 @@ final class ParserTests: XCTestCase, ParserHelpers {
     XCTAssertEqual(tokens, expectedTokens)
     
     assertParsed(GraphQlDocumentParser.executableDefinition,
-                input: ArraySlice(expectedTokens),
+                input: expectedTokens,
                 val: ExecutableDefinition.opDefinition(OperationDefinition([Selection.field(Field(
                  named: "post",
                  arguments: [
