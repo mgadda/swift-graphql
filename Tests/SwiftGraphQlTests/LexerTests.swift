@@ -56,8 +56,22 @@ Always sings aloud!\"\"\"
     
     assertParsed(GraphQlLexer.stringValue, input: input, val: StreamToken.stringValue("How sweet to be a Cloud\nFloating in the \"Blue!\"\nEvery \\little\\ cloud\nAlways sings aloud!"))
   }
-  
-  func testNameKeywordDisambiuation() {
+
+  func testNameValue() {
+    let lexer = GraphQlLexer.name
+
+    assertParsed(lexer, input: "field", val: StreamToken.name("field"))
+    assertParsed(lexer, input: "Field", val: StreamToken.name("Field"))
+    assertParsed(lexer, input: "_field", val: StreamToken.name("_field"))
+    assertParsed(lexer, input: "__typename", val: StreamToken.name("__typename"))
+    assertParsed(lexer, input: "a1", val: StreamToken.name("a1"))
+    assertParsed(lexer, input: "e", val: StreamToken.name("e"))
+
+    assertNotParsed(lexer, input: "é")
+    assertNotParsed(lexer, input: "1")
+  }
+
+  func testNameKeywordDisambiguation() {
     let lexer = GraphQlLexer.keywords | GraphQlLexer.name
     
     assertParsed(lexer, input: "query_field", val: StreamToken.name("query_field"))
@@ -71,9 +85,13 @@ Always sings aloud!\"\"\"
       ("testIntLiteral", testIntLiteral),
       ("testFloatLiteral", testFloatLiteral),
       ("testEscapedCharacter", testEscapedCharacter),
-      ("testEscapedCharacter", testEscapedCharacter),
       ("testUnicodeCharacter", testUnicodeCharacter),
+      ("testLineTerminator", testLineTerminator),
+      ("testStringCharacter", testStringCharacter),
       ("testDoubleQuotedStringValue", testDoubleQuotedStringValue),
-      ("testBlockQuotedStringValue", testBlockQuotedStringValue)
+      ("testBlockStringCharacter", testBlockStringCharacter),
+      ("testBlockQuotedStringValue", testBlockQuotedStringValue),
+      ("testNameValue", testNameValue),
+      ("testNameKeywordDisambiguation", testNameKeywordDisambiguation)
   ]
 }
