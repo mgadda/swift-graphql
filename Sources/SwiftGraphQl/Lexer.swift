@@ -150,8 +150,10 @@ struct GraphQlLexer {
   static let assignment = "=" ^^ { _ in StreamToken.assignment }
   static let exclamation = "!" ^^ { _ in StreamToken.exclamation }
 
-  static let nameStart = match(CharacterSet.alphanumerics)
-  static let nameCharacter = nameStart | match(element: Character("_"))
+  static let lowerAlpha = match(CharacterSet(charactersIn: "a"..."z"))
+  static let upperAlpha = match(CharacterSet(charactersIn: "A"..."Z"))
+  static let nameStart = match(element: Character("_")) | upperAlpha | lowerAlpha
+  static let nameCharacter = nameStart | match(CharacterSet(charactersIn: "0"..."9"))
   static let name = nameStart ~ nameCharacter* ^^ { StreamToken.name(String($0) + String($1)) }
   static let variable = "$" <~ nameCharacter+ ^^ { StreamToken.variable(String($0)) }
   static let directive = "@" <~ nameCharacter+ ^^ { StreamToken.directive(String($0)) }
