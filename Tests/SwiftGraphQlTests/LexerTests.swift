@@ -86,7 +86,7 @@ Always sings aloud!\"\"\"
       ("testFloatLiteral", testFloatLiteral),
       ("testEscapedCharacter", testEscapedCharacter),
       ("testUnicodeCharacter", testUnicodeCharacter),
-      ("testLineTerminator", testEscapedCharacter),
+      ("testLineTerminator", testLineTerminator),
       ("testStringCharacter", testStringCharacter),
       ("testDoubleQuotedStringValue", testDoubleQuotedStringValue),
       ("testBlockStringCharacter", testBlockStringCharacter),
