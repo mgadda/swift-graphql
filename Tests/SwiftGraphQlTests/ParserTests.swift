@@ -239,6 +239,22 @@ final class ParserTests: XCTestCase, ParserHelpers {
                   StreamToken.exclamation],
                  val: Type.required(Type.named("Test")))
   }
+  func testTypeCondition() {
+    // on Test
+    assertParsed(GraphQlDocumentParser.typeCondition,
+                 input: [
+                  StreamToken.on,
+                  StreamToken.name("Test")],
+                 val: Type.named("Test"))
+
+    // on [Test]
+    assertNotParsed(GraphQlDocumentParser.typeCondition,
+                    input: [
+                     StreamToken.on,
+                     StreamToken.leftBracket,
+                     StreamToken.name("Test"),
+                     StreamToken.rightBracket])
+  }
   func testVariable() {
     // $var
     assertParsed(GraphQlDocumentParser.variable,

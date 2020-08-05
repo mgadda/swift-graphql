@@ -121,7 +121,7 @@ struct GraphQlDocumentParser {
   static let fragmentSpread = match(StreamToken.ellipsis) <~ name ~ directives ^^ { (name, directives) in
     Selection.fragmentSpread(name, directives)
   }
-  static let typeCondition = match(StreamToken.on) <~ type
+  static let typeCondition = match(StreamToken.on) <~ namedType
   // inlineFragment must come before fragmentSpread because "... on" is more specific than "... Foo"
   static let selection = fieldAsSelection | inlineFragment() | fragmentSpread
   static let selectionSet: () -> StreamTokenParser<[Selection]> = { match(StreamToken.leftCurly) <~ selection+ ~> match(StreamToken.rightCurly) }
