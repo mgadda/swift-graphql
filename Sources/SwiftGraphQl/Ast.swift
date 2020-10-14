@@ -5,8 +5,22 @@
 //  Created by Matt Gadda on 12/7/19.
 //
 
-// AST Types
 enum TBD {}
+
+public enum Definition : Equatable {
+  case executable(ExecutableDefinition)
+  case type(TypeSystemDefinition)
+  case `extension`
+}
+public enum ExecutableDefinition : Equatable {
+  case operation(OperationDefinition)
+  case fragment(FragmentDefinition)
+}
+
+public typealias Document = [Definition]
+
+
+// Operational types -----
 
 public enum Value : Equatable  {
   case int(Int)
@@ -60,7 +74,7 @@ public struct Argument : Equatable  {
 }
 
 // TODO: consider defining custom equality to ensure that
-// only fields which differ by alias are different
+// only fields which differ by alias are considered different
 public struct Field : Equatable  {
   public let alias: String?
   public let name: String
@@ -126,9 +140,54 @@ public struct OperationDefinition : Equatable  {
   }
 }
 
-public enum ExecutableDefinition : Equatable {
-  case opDefinition(OperationDefinition)
-  case fragmentDefinition(FragmentDefinition)
+// Type system types ----------
+
+public struct InputValue : Equatable {
+  public let description: String?
+  public let name: String
+  public let type: Type
+  public let defaultValue: Value?
+  public let directives: [Directive]
 }
 
-public typealias Document = [ExecutableDefinition]
+public struct FieldDefinition : Equatable {
+  public let description: String?
+  public let name: String
+  public let arguments: [InputValue]
+  public let type: Type
+  public let directives: [Directive]
+}
+
+public struct ScalarTypeDefinition : Equatable {
+  public let description: String?
+  public let name: String
+  public let directives: [Directive]
+}
+
+public struct ObjectTypeDefinition : Equatable {
+  public let description: String?
+  public let name: String
+  public let interfaces: [Type]?
+  public let fields: [FieldDefinition]
+  public let directives: [Directive]
+}
+
+public struct InterfaceTypeDefinition : Equatable {}
+public struct UnionTypeDefinition : Equatable {}
+public struct EnumTypeDefinition : Equatable {}
+public struct InputObjectTypeDefinition : Equatable {}
+
+
+public enum TypeDefinition : Equatable {
+  case scalar(ScalarTypeDefinition)
+  case object(ObjectTypeDefinition)
+  case interface(InterfaceTypeDefinition)
+  case union(UnionTypeDefinition)
+  case `enum`(EnumTypeDefinition)
+  case inputObject(InputObjectTypeDefinition)
+}
+public enum TypeSystemDefinition : Equatable {
+  case schema(directives: [Directive], rootTypes: [OperationType:Type])
+  case type
+  case directive
+}

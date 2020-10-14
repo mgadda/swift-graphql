@@ -34,6 +34,7 @@ internal enum StreamToken : Equatable {
   case ellipsis
   case assignment
   case exclamation
+  case ampersand
 
   // Entities
   case name(String)
@@ -46,6 +47,10 @@ internal enum StreamToken : Equatable {
   case subscription
   case on
   case fragment
+  case schema
+  case typ
+  case scalar
+  case implements
   
   public var asValue: Value? {
     switch self {
@@ -63,6 +68,7 @@ internal enum StreamToken : Equatable {
     case let .name(s): return s
     case let .variable(v): return v
     case let .directive(d): return d
+    case let .stringValue(s): return s
     default: return .none
     }
   }
@@ -149,7 +155,9 @@ struct GraphQlLexer {
   static let ellipsis = "..." ^^ { _ in StreamToken.ellipsis }
   static let assignment = "=" ^^ { _ in StreamToken.assignment }
   static let exclamation = "!" ^^ { _ in StreamToken.exclamation }
-
+  static let ampersand = match("&") ^^ { _ in StreamToken.ampersand }
+  
+  // TODO: Can a name start with a number?
   static let nameStart = match(CharacterSet.alphanumerics)
   static let nameCharacter = nameStart | match(element: Character("_"))
   static let name = nameStart ~ nameCharacter* ^^ { StreamToken.name(String($0) + String($1)) }
@@ -162,7 +170,7 @@ struct GraphQlLexer {
   
   static let nullValue = "null" ^^ { _ in StreamToken.nullValue }
   static let values = intValue | floatValue | stringValue | nullValue | booleanValue
-  static let punctuation = assignment | exclamation | colon | comma | ellipsis
+  static let punctuation = assignment | exclamation | colon | comma | ellipsis | ampersand
   static let allParens = parens | curlies | brackets
   static let punctuationAndBrackets = punctuation | allParens
 
@@ -171,7 +179,14 @@ struct GraphQlLexer {
   static let subscription = "subscription" ^^ { _ in StreamToken.subscription }
   static let on = "on" ^^ { _ in StreamToken.on }
   static let fragment = "fragment" ^^ { _ in StreamToken.fragment }
-  static let keywords = (query | mutation | subscription | on | fragment) ~> either(lookAhead(CharacterSet(charactersIn: " {")), eof)
+  static let schema = match("schema") ^^ { _ in StreamToken.schema }
+  static let typ = match("type") ^^ { _ in StreamToken.typ }
+  static let scalar = match("scalar") ^^ { _ in StreamToken.scalar }
+  static let implements = "implements" ^^ { _ in StreamToken.implements }
+  
+  static let operationKeywords = query | mutation | subscription
+  static let typeKeywords = fragment | schema | typ | scalar | implements
+  static let keywords = (operationKeywords | on | typeKeywords) ~> either(lookAhead(CharacterSet(charactersIn: " {")), eof)
   
   static let lexer1 = whitespace | punctuation | keywords | values
   static let lexer2 = name | variable | directive | punctuationAndBrackets

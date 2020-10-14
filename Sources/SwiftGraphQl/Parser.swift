@@ -131,7 +131,8 @@ struct GraphQlDocumentParser {
     }
   }
 
-  // Operations
+  // Executable operations -----
+  
   static let queryOptType = match(StreamToken.query) ^^ { _ in OperationType.query }
   static let mutationOptType = match(StreamToken.mutation) ^^ { _ in OperationType.mutation }
   static let subscriptionOptType = match(StreamToken.subscription) ^^ { _ in OperationType.subscription }
@@ -140,15 +141,72 @@ struct GraphQlDocumentParser {
   static let fullOperationDefinition = opType ~ name*? ~ variableDefinitions*? ~ directives ~ selectionSet() ^^ { (opType, name, variableDefinitions, directives, selectionSet) in
     OperationDefinition(selectionSet, operationType: opType, name: name, variableDefinitions: variableDefinitions ?? [], directives: directives)
   }
-//
-  static let opDefinition = simpleOperationDefinition | fullOperationDefinition
+
+  static let opDefinition = simpleOperationDefinition | fullOperationDefinition ^^ { ExecutableDefinition.operation($0) }
   static let fragmentDefinition = match(StreamToken.fragment) <~ name ~ typeCondition ~ directives ~ selectionSet() ^^ { (name, typeCondition, directives, selectionSet) in
-    FragmentDefinition(name: name, typeCondition: typeCondition, directives: directives, selectionSet: selectionSet)
+    ExecutableDefinition.fragment(FragmentDefinition(name: name, typeCondition: typeCondition, directives: directives, selectionSet: selectionSet))
   }
-  static let executableDefinition = (opDefinition ^^ { ExecutableDefinition.opDefinition($0) }) | (fragmentDefinition ^^ { ExecutableDefinition.fragmentDefinition($0)})
-//  static let typeSystemDefinition: ArrayParser<StreamToken, TBD> = placeholder
-//  static let typeSystemExt: ArrayParser<StreamToken, TBD> = placeholder
-  static let definition = executableDefinition// | typeSystemDefition | typeSystemExt
+  static let executableDefinition = opDefinition | fragmentDefinition ^^ {
+    Definition.executable($0)
+  }
+  
+  // Type definitions --------
+  
+  // Schema Definition
+  static let rootTypeOperationDefinition = opType ~ match(StreamToken.colon) ~ namedType ^^ { (opType, _, typeName) in (opType, typeName) }
+  static let rootTypeOperationDefinitionList = rootTypeOperationDefinition ~ rootTypeOperationDefinition* ^^ { (first, rest) in [first] + rest }
+  static let rootTypeOperationDefinitions = match(StreamToken.leftCurly) <~ rootTypeOperationDefinitionList ~> match(StreamToken.rightCurly) ^^ { [OperationType:Type](uniqueKeysWithValues: $0)}
+  static let schemaDefinition = match(StreamToken.schema) <~ directives ~ rootTypeOperationDefinitions ^^ { (directives, rootTypes) in TypeSystemDefinition.schema(directives: directives, rootTypes: rootTypes) }
+
+  // Type Definition
+  static let description = match(StreamTokenString) ^^ { $0.asString! }
+  static let scalarTypeDefinition = description*? ~ match(StreamToken.scalar) ~ name ~ directives ^^ { (desc, _, name, directives) in
+    TypeDefinition.scalar(ScalarTypeDefinition(description: desc, name: name, directives: directives))
+  }
+  
+  static let defaultValue = value // should be value[const]
+  static let inputValueDefinition = description*? ~ name ~> match(StreamToken.colon) ~ type ~ defaultValue*? ~ directives ^^ { (desc, name, type, defaultValue, directives) in
+    InputValue(description: desc, name: name, type: type, defaultValue: defaultValue, directives: directives)
+  }
+  static let inputValueDefinitionList = inputValueDefinition ~ inputValueDefinition* ^^ { (first, rest) in [first] + rest }
+  static let argumentsDefinition = match(StreamToken.leftParen) <~ inputValueDefinitionList ~> match(StreamToken.rightParen)
+  static let fieldDefinition = description*? ~ name ~ argumentsDefinition*? ~ match(StreamToken.colon) ~ type ~ directives ^^ { (desc, name, arguments, _, type, directives) in
+    FieldDefinition(description: desc, name: name, arguments: arguments ?? [], type: type, directives: directives)
+  }
+  static let fieldDefinitionList = fieldDefinition ~ fieldDefinition* ^^ { (first, rest) in [first] + rest }
+  static let fieldsDefinition = match(StreamToken.leftCurly) <~ fieldDefinitionList ~> match(StreamToken.rightCurly)
+  static let implementsInterfaces = namedType ~ (match(StreamToken.ampersand) <~ namedType)* ^^ { (first, rest) in [first] + rest }
+  static let objectTypeDefinition = description*? ~> match(StreamToken.typ) ~ name ~ implementsInterfaces*? ~ directives ~ fieldsDefinition*? ^^ {
+    (desc, name, interfaces, directives, fields) in
+    TypeDefinition.object(
+      ObjectTypeDefinition(
+        description: desc,
+        name: name,
+        interfaces: interfaces ?? [],
+        fields: fields ?? [],
+        directives: directives))
+  }
+//  static let interfaceTypeDefinition =
+//  static let unionTypeDefinition =
+//  static let unumTypeDefinition =
+//  static let inputObjectTypeDefinition =
+
+  static let typeDefinition = scalarTypeDefinition
+    | objectTypeDefinition
+//    | InterfaceTypeDefinition
+//    | UnionTypeDefinition
+//    | EnumTypeDefinition
+//    | InputObjectTypeDefinition
+
+  // Directive Definition
+  //  static let directiveDefinition =
+  
+  static let typeSystemDefinition = schemaDefinition /* // | typeDefinition |  directiveDefinition */ ^^ { Definition.type($0) }
+  //static let typeSystemExt: ArrayParser<StreamToken, TBD> = placeholder
+  
+  // Type system extensions ------
+  
+  static let definition = executableDefinition | typeSystemDefinition// | typeSystemExt
   static let document = definition+
 }
 

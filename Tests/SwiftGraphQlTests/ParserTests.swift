@@ -2,7 +2,7 @@ import XCTest
 @testable import SwiftGraphQl
 import SwiftParse
 
-final class ParserTests: XCTestCase, ParserHelpers {  
+final class ParserTests: XCTestCase, ParserHelpers {
   func testName() {
     assertParsed(GraphQlDocumentParser.name,
                  input: [.name("test")],
@@ -522,13 +522,13 @@ final class ParserTests: XCTestCase, ParserHelpers {
                   .leftCurly,
                   .name("query_field"),
                   .rightCurly],
-                 val: FragmentDefinition(
+                 val: ExecutableDefinition.fragment(FragmentDefinition(
                   name: "Foo",
                   typeCondition: Type.named("SomeType"),
                   directives: [],
                   selectionSet: [
                     Selection.field(
-                      Field(named: "query_field"))]))
+                      Field(named: "query_field"))])))
   }
   func testExecutableDefinition() {
     let result = GraphQlLexer.lexer(AnyCollection("""
@@ -569,7 +569,7 @@ final class ParserTests: XCTestCase, ParserHelpers {
     
     assertParsed(GraphQlDocumentParser.executableDefinition,
                 input: expectedTokens,
-                val: ExecutableDefinition.opDefinition(OperationDefinition([Selection.field(Field(
+                val: Definition.executable( ExecutableDefinition.operation(OperationDefinition([Selection.field(Field(
                  named: "post",
                  arguments: [
                    Argument(
@@ -582,9 +582,76 @@ final class ParserTests: XCTestCase, ParserHelpers {
                  name: "GetPost",
                  variableDefinitions: [
                   VariableDefinition(name: "postId", type: Type.required(Type.named("ID")), defaultValue: nil, directives: [])],
-                 directives: [])))
+                 directives: []))))
     
   }
+  
+  func testScalarTypeDefinition() {
+    let result = GraphQlLexer.lexer(AnyCollection("""
+      "A Foo scalar"
+      scalar Foo
+    """))
+    
+    let tokens: [StreamToken] = [
+      .stringValue("A Foo scalar"),
+      .scalar,
+      .name("Foo")
+    ]
+        
+    let expectedTokens = try! result.get().0.filter({ $0 != StreamToken.whitespace })
+    XCTAssertEqual(tokens, expectedTokens)
+    
+    assertParsed(
+      GraphQlDocumentParser.scalarTypeDefinition,
+      input: tokens,
+      val: TypeDefinition.scalar(ScalarTypeDefinition(description: "A Foo scalar", name: "Foo", directives: [])))
+  }
+  
+  func testObjectTypeDefinition() {
+    let result = GraphQlLexer.lexer(AnyCollection("""
+      "Foo object description"
+      type Foo implements ThingOne & ThingTwo {
+        field1: String
+      }
+    """))
+    
+    let tokens: [StreamToken] = [
+      .stringValue("Foo object description"),
+      .typ,
+      .name("Foo"),
+      .implements,
+      .name("ThingOne"),
+      .ampersand,
+      .name("ThingTwo"),
+      .leftCurly,
+      .name("field1"),
+      .colon,
+      .name("String"),
+      .rightCurly
+    ]
+    
+    let expectedTokens = try! result.get().0.filter({ $0 != StreamToken.whitespace })
+    XCTAssertEqual(tokens, expectedTokens)
+    
+    assertParsed(
+      GraphQlDocumentParser.objectTypeDefinition,
+      input: tokens,
+      val: TypeDefinition.object(
+        ObjectTypeDefinition(
+          description: "Foo object description",
+          name: "Foo",
+          interfaces: [Type.named("ThingOne"), Type.named("ThingTwo")],
+          fields: [
+            FieldDefinition(
+              description: nil,
+              name: "field1",
+              arguments: [],
+              type: Type.named("String"),
+              directives: [])
+          ],
+          directives: [])))
+  }
+  
   static var allTests = [
       ("testName", testName),
   ]
