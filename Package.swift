@@ -1,4 +1,4 @@
-// swift-tools-version:5.2
+// swift-tools-version:5.1
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -19,20 +19,16 @@ let package = Package(
         //   --original-url 'https://github.com/mgadda/swift-parse' \
         //   --mirror-url '../swift-parse'
         .package(
-            name: "SwiftParse",
             url: "https://github.com/mgadda/swift-parse",
             .upToNextMinor(from: "0.4.0"))
     ],
     targets: [
         .target(
             name: "GraphQlCLI",
-            dependencies: ["SwiftGraphQl"]
-        ),
+            dependencies: ["SwiftGraphQl"]),
         .target(
             name: "SwiftGraphQl",
-            dependencies: [
-              .product(name: "SwiftParse", package: "SwiftParse")
-            ]),
+            dependencies: ["SwiftParse"]),
         .testTarget(
             name: "SwiftGraphQlTests",
             dependencies: ["SwiftGraphQl"])
